@@ -11,13 +11,9 @@ url: https://github.com/CoreTex/homeassistant-eebus
 host_network: true
 init: false
 startup: services
-boot: auto
 arch:
   - aarch64
   - amd64
-  - armv7
-  - armhf
-  - i386
 # /data is provided automatically and holds the persisted certificate + key.
 options:
   log_level: info
