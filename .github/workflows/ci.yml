@@ -56,8 +56,6 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          # The integration is not (yet) registered in home-assistant/brands.
-          ignore: brands
 
   addon-lint:
     name: Add-on lint
