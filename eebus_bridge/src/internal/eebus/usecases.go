@@ -46,6 +46,9 @@ func (m *Manager) setupUseCases() {
 		_ = m.csLPC.SetConsumptionLimit(ucapi.LoadLimit{IsChangeable: true, IsActive: false})
 		_ = m.csLPC.SetFailsafeConsumptionActivePowerLimit(4200, true)
 		_ = m.csLPC.SetFailsafeDurationMinimum(2*time.Hour, true)
+		if m.cfg.LpcNominalMaxW > 0 {
+			_ = m.csLPC.SetConsumptionNominalMax(m.cfg.LpcNominalMaxW)
+		}
 		m.refreshLPC()
 	}
 	if m.cfg.EnableLPP {
@@ -54,6 +57,9 @@ func (m *Manager) setupUseCases() {
 		_ = m.csLPP.SetProductionLimit(ucapi.LoadLimit{IsChangeable: true, IsActive: false})
 		_ = m.csLPP.SetFailsafeProductionActivePowerLimit(4200, true)
 		_ = m.csLPP.SetFailsafeDurationMinimum(2*time.Hour, true)
+		if m.cfg.LppNominalMaxW > 0 {
+			_ = m.csLPP.SetProductionNominalMax(m.cfg.LppNominalMaxW)
+		}
 		m.refreshLPP()
 	}
 

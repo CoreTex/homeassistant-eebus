@@ -35,6 +35,13 @@ type Config struct {
 	EnableInverter  bool `json:"enable_inverter"`   // VAPD ~ Monitoring of Inverter (MOI)
 	EnableEGControl bool `json:"enable_eg_control"` // Energy Guard: send limits to the inverter
 
+	// Optional nominal maximum power seeds for the Controllable System, in watts.
+	// 0 means "leave unset" (the value can still be changed at runtime via the
+	// number entities / API). These persist the §14a-relevant nominal maxima
+	// across add-on restarts.
+	LpcNominalMaxW float64 `json:"lpc_nominal_max_w"`
+	LppNominalMaxW float64 `json:"lpp_nominal_max_w"`
+
 	// Trust / pairing behaviour
 	AutoAcceptTrust   bool     `json:"auto_accept_trust"`   // auto-trust any remote that wants to pair
 	AutoApproveLimits bool     `json:"auto_approve_limits"` // auto-accept incoming LPC/LPP write limits
@@ -61,6 +68,8 @@ func Default() Config {
 		EnableBattery:     true,
 		EnableInverter:    true,
 		EnableEGControl:   false,
+		LpcNominalMaxW:    0,
+		LppNominalMaxW:    0,
 		AutoAcceptTrust:   false,
 		AutoApproveLimits: true,
 		TrustedSKIs:       nil,

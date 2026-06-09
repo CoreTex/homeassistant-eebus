@@ -64,6 +64,8 @@ inverter exposes them depends on the device. LPC, LPP and MPC are first-class.
 | `enable_battery` | `true` | Battery monitoring (VABD ~ MOB) |
 | `enable_inverter` | `true` | Inverter/PV monitoring (VAPD ~ MOI) |
 | `enable_eg_control` | `false` | Act as Energy Guard and send limits to the inverter |
+| `lpc_nominal_max_w` | `0` | Seed the consumption nominal maximum (W); `0` = leave unset. Relevant for §14a. |
+| `lpp_nominal_max_w` | `0` | Seed the production nominal maximum (W); `0` = leave unset. |
 | `auto_accept_trust` | `false` | Auto-trust any remote that tries to pair |
 | `auto_approve_limits` | `true` | Auto-accept incoming LPC/LPP write limits |
 | `trusted_skis` | `[]` | Pre-trusted remote SKIs (40 hex chars each) |

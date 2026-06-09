@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+- Add `lpc_nominal_max_w` / `lpp_nominal_max_w` options to seed the Controllable
+  System nominal maximum power (relevant for §14a) persistently across restarts.
+- Add-on store icon.
+
 ## 0.1.0
 
 Initial release.

@@ -1,5 +1,5 @@
 name: EEBUS Bridge
-version: "0.1.0"
+version: "0.1.1"
 slug: eebus_bridge
 description: >-
   EEBUS (SHIP/SPINE) bridge for Home Assistant. Receives LPC/LPP power limits as
@@ -7,6 +7,10 @@ description: >-
   act as an Energy Guard to limit the inverter. Exposes a local API for the
   "eebus" custom integration.
 url: https://github.com/CoreTex/homeassistant-eebus
+# Pre-built multi-arch images published by GitHub Actions (.github/workflows/build.yml).
+# With this set, the Supervisor pulls the image instead of compiling on-device.
+# {arch} is substituted by the Supervisor (aarch64 / amd64).
+image: "ghcr.io/coretex/{arch}-addon-eebus_bridge"
 # EEBUS needs LAN access for SHIP/mDNS discovery and direct TLS connections.
 host_network: true
 init: false
@@ -29,6 +33,8 @@ options:
   enable_battery: true
   enable_inverter: true
   enable_eg_control: false
+  lpc_nominal_max_w: 0
+  lpp_nominal_max_w: 0
   auto_accept_trust: false
   auto_approve_limits: true
   trusted_skis: []
@@ -47,6 +53,8 @@ schema:
   enable_battery: bool
   enable_inverter: bool
   enable_eg_control: bool
+  lpc_nominal_max_w: float(0,)
+  lpp_nominal_max_w: float(0,)
   auto_accept_trust: bool
   auto_approve_limits: bool
   trusted_skis:
