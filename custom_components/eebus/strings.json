@@ -84,6 +84,7 @@
       "failsafe_consumption_power": { "name": "Failsafe consumption power" },
       "failsafe_consumption_duration": { "name": "Failsafe consumption duration" },
       "consumption_nominal_max_cfg": { "name": "Consumption nominal maximum" },
+      "production_nominal_max_cfg": { "name": "Production nominal maximum" },
       "failsafe_production_power": { "name": "Failsafe production power" },
       "failsafe_production_duration": { "name": "Failsafe production duration" },
       "inverter_consumption_limit": { "name": "Inverter consumption limit" },

@@ -106,6 +106,20 @@ NUMBERS: tuple[EebusNumberEntityDescription, ...] = (
         set_fn=lambda c, d, v: c.set_lpp_failsafe(duration_s=v),
         available_fn=lambda d: bool(_get(d, "lpp", "supported")),
     ),
+    EebusNumberEntityDescription(
+        key="production_nominal_max",
+        translation_key="production_nominal_max_cfg",
+        device_class=NumberDeviceClass.POWER,
+        native_unit_of_measurement=UnitOfPower.WATT,
+        native_min_value=0,
+        native_max_value=100000,
+        native_step=100,
+        mode=NumberMode.BOX,
+        entity_category=EntityCategory.CONFIG,
+        value_fn=lambda d: _get(d, "lpp", "nominal_max_w"),
+        set_fn=lambda c, d, v: c.set_lpp_nominal_max(v),
+        available_fn=lambda d: bool(_get(d, "lpp", "supported")),
+    ),
     # --- Energy Guard: stage the inverter limit target ---
     # Setting the target does not contact the inverter; flip the matching switch
     # to apply it. This means the target can be configured even when the inverter
