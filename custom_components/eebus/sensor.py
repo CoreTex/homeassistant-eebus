@@ -270,7 +270,13 @@ class EebusSensor(EebusEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        return (
-            super().available
-            and self.entity_description.available_fn(self.data)
-        )
+        if not super().available:
+            return False
+        if not self.entity_description.available_fn(self.data):
+            return False
+        # Report sensors without a value as "unavailable" instead of "unknown".
+        # This hides monitoring sensors for use cases the paired device does not
+        # actually provide (e.g. a Kostal inverter that exposes MPC but not the
+        # VABD/VAPD battery/PV data), while they appear automatically as soon as
+        # real data arrives.
+        return self.native_value is not None
