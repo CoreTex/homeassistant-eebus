@@ -31,6 +31,7 @@ class EebusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER,
             name=DOMAIN,
             update_interval=timedelta(seconds=UPDATE_INTERVAL_SECONDS),
+            config_entry=entry,
         )
         self.entry = entry
         self.client = client
