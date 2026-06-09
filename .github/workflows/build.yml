@@ -1,0 +1,48 @@
+name: Build add-on images
+
+# Builds the EEBUS Bridge add-on for every supported architecture and publishes
+# the images to GitHub Container Registry (GHCR). With the `image:` key set in
+# config.yaml, the Home Assistant Supervisor then PULLS these prebuilt images
+# instead of compiling the Go service on the user's device.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "eebus_bridge/**"
+      - ".github/workflows/build.yml"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [aarch64, amd64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.arch }}
+        uses: home-assistant/builder@master
+        with:
+          args: |
+            --${{ matrix.arch }} \
+            --target /data/eebus_bridge \
+            --image "{arch}-addon-eebus_bridge" \
+            --docker-hub "ghcr.io/coretex" \
+            --addon
