@@ -1,3 +1,8 @@
+# BUILD_FROM must be a global ARG (declared before the first FROM) so it is
+# available to the stage-2 `FROM ${BUILD_FROM}` instruction. The Supervisor
+# passes it via --build-arg.
+ARG BUILD_FROM
+
 # Stage 1: compile the Go service. The Home Assistant builder runs this whole
 # Dockerfile under the target architecture (via qemu), so a native build of the
 # matching golang image produces a correct binary for each arch.
@@ -15,7 +20,6 @@ RUN CGO_ENABLED=0 go build \
     -o /eebus-bridge .
 
 # Stage 2: Home Assistant base image (alpine + s6-overlay + bashio).
-ARG BUILD_FROM
 FROM ${BUILD_FROM}
 
 # s6 v3 in the HA base images still honours legacy /etc/services.d services.
