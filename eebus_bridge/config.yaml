@@ -1,0 +1,58 @@
+name: EEBUS Bridge
+version: "0.1.0"
+slug: eebus_bridge
+description: >-
+  EEBUS (SHIP/SPINE) bridge for Home Assistant. Receives LPC/LPP power limits as
+  a Controllable System, monitors an inverter/battery (MPC, VABD, VAPD) and can
+  act as an Energy Guard to limit the inverter. Exposes a local API for the
+  "eebus" custom integration.
+url: https://github.com/CoreTex/homeassistant-eebus
+# EEBUS needs LAN access for SHIP/mDNS discovery and direct TLS connections.
+host_network: true
+init: false
+startup: services
+boot: auto
+arch:
+  - aarch64
+  - amd64
+  - armv7
+  - armhf
+  - i386
+# /data is provided automatically and holds the persisted certificate + key.
+options:
+  log_level: info
+  api_port: 7050
+  api_token: ""
+  eebus_port: 4715
+  device_brand: HomeAssistant
+  device_model: EEBUS-Bridge
+  device_serial: ""
+  enable_lpc: true
+  enable_lpp: true
+  enable_mpc: true
+  enable_battery: true
+  enable_inverter: true
+  enable_eg_control: false
+  auto_accept_trust: false
+  auto_approve_limits: true
+  trusted_skis: []
+  inverter_ski: ""
+schema:
+  log_level: list(error|info|debug|trace)
+  api_port: int(1,65535)
+  api_token: password?
+  eebus_port: int(1,65535)
+  device_brand: str
+  device_model: str
+  device_serial: str?
+  enable_lpc: bool
+  enable_lpp: bool
+  enable_mpc: bool
+  enable_battery: bool
+  enable_inverter: bool
+  enable_eg_control: bool
+  auto_accept_trust: bool
+  auto_approve_limits: bool
+  trusted_skis:
+    - match(^[0-9a-fA-F]{40}$)
+  inverter_ski: match(^[0-9a-fA-F]{40}$)?

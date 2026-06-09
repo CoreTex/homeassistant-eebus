@@ -1,0 +1,7 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# When the service stops, bring the whole add-on down instead of letting s6
+# restart it in a tight loop (e.g. on a fatal configuration error).
+# ==============================================================================
+bashio::log.info "EEBUS Bridge stopped, halting add-on"
+exec /run/s6/basedir/bin/halt

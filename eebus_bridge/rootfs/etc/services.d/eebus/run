@@ -1,0 +1,9 @@
+#!/usr/bin/with-contenv bashio
+# ==============================================================================
+# Start the EEBUS Bridge service.
+# The binary reads its configuration directly from /data/options.json, which the
+# Supervisor writes from the add-on options.
+# ==============================================================================
+bashio::log.info "Starting EEBUS Bridge..."
+
+exec /usr/bin/eebus-bridge -options /data/options.json

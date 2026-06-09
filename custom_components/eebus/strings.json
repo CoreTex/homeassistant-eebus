@@ -1,0 +1,97 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "EEBUS Bridge",
+        "description": "Enter the address of the EEBUS Bridge add-on API. With the bundled add-on (host network) use your Home Assistant host IP.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "token": "API token (optional)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the EEBUS Bridge API.",
+      "no_ski": "The add-on did not report a SKI yet. Make sure it has finished starting."
+    },
+    "abort": {
+      "already_configured": "This EEBUS Bridge is already configured."
+    }
+  },
+  "services": {
+    "set_consumption_limit": {
+      "name": "Set consumption limit",
+      "description": "Send an LPC consumption limit to the inverter (Home Assistant acting as Energy Guard).",
+      "fields": {
+        "value_w": { "name": "Limit", "description": "Consumption limit in watts." },
+        "active": { "name": "Active", "description": "Whether the limit is active." },
+        "duration_s": { "name": "Duration", "description": "Duration in seconds (0 = no time limit)." }
+      }
+    },
+    "set_production_limit": {
+      "name": "Set production limit",
+      "description": "Send an LPP production limit to the inverter (Home Assistant acting as Energy Guard).",
+      "fields": {
+        "value_w": { "name": "Limit", "description": "Production limit in watts (positive value)." },
+        "active": { "name": "Active", "description": "Whether the limit is active." },
+        "duration_s": { "name": "Duration", "description": "Duration in seconds (0 = no time limit)." }
+      }
+    },
+    "trust_device": {
+      "name": "Trust device",
+      "description": "Trust a remote EEBUS device by its SKI so it can pair with the bridge.",
+      "fields": {
+        "ski": { "name": "SKI", "description": "The 40-character hexadecimal SKI of the remote device." }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "consumption_limit": { "name": "Consumption limit" },
+      "consumption_limit_duration": { "name": "Consumption limit duration" },
+      "consumption_nominal_max": { "name": "Consumption nominal maximum" },
+      "production_limit": { "name": "Production limit" },
+      "production_limit_duration": { "name": "Production limit duration" },
+      "active_power": { "name": "Active power" },
+      "energy_consumed": { "name": "Energy consumed" },
+      "energy_produced": { "name": "Energy produced" },
+      "frequency": { "name": "Frequency" },
+      "inverter_power": { "name": "Inverter power" },
+      "inverter_pv_yield_total": { "name": "PV yield total" },
+      "inverter_nominal_peak": { "name": "Inverter nominal peak power" },
+      "battery_power": { "name": "Battery power" },
+      "battery_soc": { "name": "Battery state of charge" },
+      "battery_energy_charged": { "name": "Battery energy charged" },
+      "battery_energy_discharged": { "name": "Battery energy discharged" },
+      "power_l1": { "name": "Power L1" },
+      "power_l2": { "name": "Power L2" },
+      "power_l3": { "name": "Power L3" },
+      "current_l1": { "name": "Current L1" },
+      "current_l2": { "name": "Current L2" },
+      "current_l3": { "name": "Current L3" },
+      "voltage_l1": { "name": "Voltage L1" },
+      "voltage_l2": { "name": "Voltage L2" },
+      "voltage_l3": { "name": "Voltage L3" }
+    },
+    "binary_sensor": {
+      "consumption_limit_active": { "name": "Consumption limit active" },
+      "production_limit_active": { "name": "Production limit active" },
+      "connected": { "name": "EEBUS connected" },
+      "lpc_heartbeat": { "name": "LPC heartbeat" }
+    },
+    "number": {
+      "failsafe_consumption_power": { "name": "Failsafe consumption power" },
+      "failsafe_consumption_duration": { "name": "Failsafe consumption duration" },
+      "consumption_nominal_max_cfg": { "name": "Consumption nominal maximum" },
+      "failsafe_production_power": { "name": "Failsafe production power" },
+      "failsafe_production_duration": { "name": "Failsafe production duration" },
+      "inverter_consumption_limit": { "name": "Inverter consumption limit" },
+      "inverter_production_limit": { "name": "Inverter production limit" }
+    },
+    "switch": {
+      "inverter_consumption_limit_active": { "name": "Inverter consumption limit active" },
+      "inverter_production_limit_active": { "name": "Inverter production limit active" }
+    }
+  }
+}

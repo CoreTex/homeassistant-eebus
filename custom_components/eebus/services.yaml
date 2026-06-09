@@ -1,0 +1,61 @@
+set_consumption_limit:
+  fields:
+    value_w:
+      required: true
+      example: 4200
+      selector:
+        number:
+          min: 0
+          max: 100000
+          step: 100
+          unit_of_measurement: W
+    active:
+      required: false
+      default: true
+      selector:
+        boolean:
+    duration_s:
+      required: false
+      default: 0
+      example: 3600
+      selector:
+        number:
+          min: 0
+          max: 86400
+          step: 1
+          unit_of_measurement: s
+
+set_production_limit:
+  fields:
+    value_w:
+      required: true
+      example: 7000
+      selector:
+        number:
+          min: 0
+          max: 100000
+          step: 100
+          unit_of_measurement: W
+    active:
+      required: false
+      default: true
+      selector:
+        boolean:
+    duration_s:
+      required: false
+      default: 0
+      example: 3600
+      selector:
+        number:
+          min: 0
+          max: 86400
+          step: 1
+          unit_of_measurement: s
+
+trust_device:
+  fields:
+    ski:
+      required: true
+      example: "047f49440480912fbaa29cc6ac1d572ef7565413"
+      selector:
+        text:
