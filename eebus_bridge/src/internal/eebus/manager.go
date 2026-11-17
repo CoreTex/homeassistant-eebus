@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -46,6 +48,14 @@ type Manager struct {
 	egEntity spineapi.EntityRemoteInterface
 	conns    map[string]*store.Connection
 
+	// primarySKI is the remote whose measurements are mirrored into the
+	// top-level mpc/battery/inverter blocks (see isPrimary).
+	primarySKI    string
+	primaryWarned map[string]bool
+
+	// trustMu serialises read-modify-write of the persisted trust file.
+	trustMu sync.Mutex
+
 	// use case interfaces
 	csLPC ucapi.CsLPCInterface
 	csLPP ucapi.CsLPPInterface
@@ -64,6 +74,9 @@ func NewManager(cfg config.Config, st *store.Store, version string) (*Manager, e
 		logger:  NewLogger(cfg.LogLevel),
 		version: version,
 		conns:   make(map[string]*store.Connection),
+
+		primarySKI:    cfg.InverterSKI,
+		primaryWarned: make(map[string]bool),
 	}
 
 	certificate, err := m.loadOrCreateCertificate()
@@ -121,6 +134,10 @@ func (m *Manager) Start() error {
 	if m.cfg.InverterSKI != "" {
 		m.registerTrusted(m.cfg.InverterSKI)
 	}
+	// Re-trust remotes paired at runtime in earlier runs.
+	for _, ski := range m.loadPersistedTrust() {
+		m.registerTrusted(ski)
+	}
 
 	if err := m.svc.Start(); err != nil {
 		return err
@@ -149,6 +166,7 @@ func (m *Manager) Trust(ski string) error {
 		return fmt.Errorf("invalid SKI %q", ski)
 	}
 	m.registerTrusted(ski)
+	m.setPersistedTrust(ski, true)
 	return nil
 }
 
@@ -159,6 +177,10 @@ func (m *Manager) Forget(ski string) error {
 		return fmt.Errorf("invalid SKI %q", ski)
 	}
 	m.svc.UnregisterRemoteService(shipapi.NewServiceIdentity(ski, "", ""))
+	m.setPersistedTrust(ski, false)
+	if slices.Contains(m.cfg.TrustedSKIs, ski) || ski == m.cfg.InverterSKI {
+		m.logger.Infof("%s is listed in the add-on configuration and will be trusted again after a restart", ski)
+	}
 	m.mu.Lock()
 	if c, ok := m.conns[ski]; ok {
 		c.Trusted = false
@@ -240,16 +262,22 @@ func (m *Manager) syncConnections() {
 	m.mu.Lock()
 	list := make([]store.Connection, 0, len(m.conns))
 	anyConnected := false
+	primary := m.primarySKI
+	egTarget := entitySKI(m.egEntity)
 	for _, c := range m.conns {
+		c.Primary = c.SKI == primary
+		c.EnergyGuardTarget = c.SKI == egTarget
 		list = append(list, *c)
 		if c.Connected {
 			anyConnected = true
 		}
 	}
 	m.mu.Unlock()
+	slices.SortFunc(list, func(a, b store.Connection) int { return strings.Compare(a.SKI, b.SKI) })
 	m.store.Update(func(s *store.State) {
 		s.Connections = list
 		s.Connected = anyConnected
+		s.PrimarySKI = primary
 	})
 }
 

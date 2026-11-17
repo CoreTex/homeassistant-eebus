@@ -59,3 +59,11 @@ trust_device:
       example: "047f49440480912fbaa29cc6ac1d572ef7565413"
       selector:
         text:
+
+forget_device:
+  fields:
+    ski:
+      required: true
+      example: "047f49440480912fbaa29cc6ac1d572ef7565413"
+      selector:
+        text:

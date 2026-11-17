@@ -40,7 +40,14 @@
     },
     "trust_device": {
       "name": "Trust device",
-      "description": "Trust a remote EEBUS device by its SKI so it can pair with the bridge.",
+      "description": "Trust a remote EEBUS device by its SKI so it can pair with the bridge. The trust is persisted by the add-on.",
+      "fields": {
+        "ski": { "name": "SKI", "description": "The 40-character hexadecimal SKI of the remote device." }
+      }
+    },
+    "forget_device": {
+      "name": "Forget device",
+      "description": "Remove the trust for a remote EEBUS device. SKIs listed in the add-on configuration are trusted again after an add-on restart.",
       "fields": {
         "ski": { "name": "SKI", "description": "The 40-character hexadecimal SKI of the remote device." }
       }
@@ -72,13 +79,16 @@
       "current_l3": { "name": "Current L3" },
       "voltage_l1": { "name": "Voltage L1" },
       "voltage_l2": { "name": "Voltage L2" },
-      "voltage_l3": { "name": "Voltage L3" }
+      "voltage_l3": { "name": "Voltage L3" },
+      "remote_power": { "name": "Power" },
+      "remote_energy_consumed": { "name": "Energy consumed" }
     },
     "binary_sensor": {
       "consumption_limit_active": { "name": "Consumption limit active" },
       "production_limit_active": { "name": "Production limit active" },
       "connected": { "name": "EEBUS connected" },
-      "lpc_heartbeat": { "name": "LPC heartbeat" }
+      "lpc_heartbeat": { "name": "LPC heartbeat" },
+      "remote_connected": { "name": "Connected" }
     },
     "number": {
       "failsafe_consumption_power": { "name": "Failsafe consumption power" },
@@ -92,7 +102,8 @@
     },
     "switch": {
       "inverter_consumption_limit_active": { "name": "Inverter consumption limit active" },
-      "inverter_production_limit_active": { "name": "Inverter production limit active" }
+      "inverter_production_limit_active": { "name": "Inverter production limit active" },
+      "remote_trusted": { "name": "Trusted" }
     }
   }
 }

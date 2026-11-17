@@ -12,6 +12,7 @@ from homeassistant.components.switch import (
     SwitchEntityDescription,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -20,6 +21,7 @@ from .api import EebusApiClient, EebusApiError
 from .const import DOMAIN
 from .coordinator import EebusCoordinator
 from .entity import EebusEntity
+from .remote import EebusRemoteEntity, async_track_remotes
 from .sensor import _get
 
 
@@ -74,6 +76,11 @@ async def async_setup_entry(
     async_add_entities(
         EebusSwitch(coordinator, description) for description in SWITCHES
     )
+    async_track_remotes(
+        coordinator,
+        async_add_entities,
+        lambda coord, ski: [EebusRemoteTrustSwitch(coord, ski)],
+    )
 
 
 class EebusSwitch(EebusEntity, SwitchEntity):
@@ -105,6 +112,42 @@ class EebusSwitch(EebusEntity, SwitchEntity):
             await self.entity_description.set_fn(
                 self.coordinator.client, self.data, active
             )
+        except EebusApiError as err:
+            raise HomeAssistantError(str(err)) from err
+        await self.coordinator.async_request_refresh()
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self._apply(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self._apply(False)
+
+
+class EebusRemoteTrustSwitch(EebusRemoteEntity, SwitchEntity):
+    """Trust (pair) or forget a remote EEBUS device.
+
+    Turning it on lets the device complete SHIP pairing with the bridge; the
+    trust is persisted by the add-on. The remote still has to trust the
+    bridge's SKI on its side (e.g. in the wallbox web UI).
+    """
+
+    _attr_translation_key = "remote_trusted"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: EebusCoordinator, ski: str) -> None:
+        super().__init__(coordinator, ski, "trusted")
+
+    @property
+    def is_on(self) -> bool:
+        return bool(self.conn.get("trusted"))
+
+    async def _apply(self, trusted: bool) -> None:
+        client = self.coordinator.client
+        try:
+            if trusted:
+                await client.trust(self._ski)
+            else:
+                await client.forget(self._ski)
         except EebusApiError as err:
             raise HomeAssistantError(str(err)) from err
         await self.coordinator.async_request_refresh()

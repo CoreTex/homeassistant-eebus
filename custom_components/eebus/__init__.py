@@ -9,6 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import EebusApiClient, EebusApiError
@@ -17,7 +18,10 @@ from .const import (
     CONF_PORT,
     CONF_TOKEN,
     DOMAIN,
+    MANUFACTURER,
+    MODEL,
     PLATFORMS,
+    SERVICE_FORGET_DEVICE,
     SERVICE_SET_CONSUMPTION_LIMIT,
     SERVICE_SET_PRODUCTION_LIMIT,
     SERVICE_TRUST_DEVICE,
@@ -39,6 +43,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     coordinator = EebusCoordinator(hass, entry, client)
     await coordinator.async_config_entry_first_refresh()
+
+    # Register the bridge device up front so remote devices (inverter,
+    # wallboxes) can reference it via its device id.
+    bridge_device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, entry.unique_id or "eebus")},
+        name="EEBUS Bridge",
+        manufacturer=MANUFACTURER,
+        model=MODEL,
+        sw_version=(coordinator.data or {}).get("service", {}).get("version"),
+    )
+    coordinator.bridge_device_id = bridge_device.id
     await coordinator.async_start_websocket()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
@@ -62,6 +78,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             SERVICE_SET_CONSUMPTION_LIMIT,
             SERVICE_SET_PRODUCTION_LIMIT,
             SERVICE_TRUST_DEVICE,
+            SERVICE_FORGET_DEVICE,
         ):
             hass.services.async_remove(DOMAIN, service)
     return unload_ok
@@ -120,6 +137,16 @@ def _async_register_services(hass: HomeAssistant) -> None:
     hass.services.async_register(
         DOMAIN, SERVICE_SET_PRODUCTION_LIMIT, _handle_production, schema=limit_schema
     )
+    async def _handle_forget(call: ServiceCall) -> None:
+        for coord in _coordinators(hass):
+            try:
+                await coord.client.forget(call.data["ski"])
+            except EebusApiError as err:
+                raise HomeAssistantError(str(err)) from err
+
     hass.services.async_register(
         DOMAIN, SERVICE_TRUST_DEVICE, _handle_trust, schema=trust_schema
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_FORGET_DEVICE, _handle_forget, schema=trust_schema
     )

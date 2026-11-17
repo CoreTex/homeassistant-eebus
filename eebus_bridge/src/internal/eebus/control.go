@@ -21,13 +21,14 @@ import (
 func (m *Manager) onEgLPC(_ string, _ spineapi.DeviceRemoteInterface, entity spineapi.EntityRemoteInterface, event eebusapi.EventType) {
 	switch event {
 	case eglpc.UseCaseSupportUpdate:
-		if slices.Contains(m.egLPC.AvailableScenariosForEntity(entity), uint(1)) {
-			m.mu.Lock()
-			m.egEntity = entity
-			m.mu.Unlock()
-			m.logger.Infof("inverter supports Energy-Guard control: %s", entity.Device().Ski())
+		if slices.Contains(m.egLPC.AvailableScenariosForEntity(entity), uint(1)) && m.acceptEGTarget(entity) {
+			m.setEGTarget(entity)
+			m.logger.Infof("inverter supports Energy-Guard control: %s", entitySKI(entity))
 		}
 	case eglpc.DataUpdateLimit:
+		if !m.isEGTarget(entity) {
+			return
+		}
 		if l, err := m.egLPC.ConsumptionLimit(entity); err == nil {
 			m.store.Update(func(s *store.State) {
 				s.InverterControl.ConsumptionLimitW = l.Value
@@ -40,12 +41,13 @@ func (m *Manager) onEgLPC(_ string, _ spineapi.DeviceRemoteInterface, entity spi
 func (m *Manager) onEgLPP(_ string, _ spineapi.DeviceRemoteInterface, entity spineapi.EntityRemoteInterface, event eebusapi.EventType) {
 	switch event {
 	case eglpp.UseCaseSupportUpdate:
-		if slices.Contains(m.egLPP.AvailableScenariosForEntity(entity), uint(1)) {
-			m.mu.Lock()
-			m.egEntity = entity
-			m.mu.Unlock()
+		if slices.Contains(m.egLPP.AvailableScenariosForEntity(entity), uint(1)) && m.acceptEGTarget(entity) {
+			m.setEGTarget(entity)
 		}
 	case eglpp.DataUpdateLimit:
+		if !m.isEGTarget(entity) {
+			return
+		}
 		if l, err := m.egLPP.ProductionLimit(entity); err == nil {
 			m.store.Update(func(s *store.State) {
 				s.InverterControl.ProductionLimitW = math.Abs(l.Value)

@@ -19,6 +19,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 from .coordinator import EebusCoordinator
 from .entity import EebusEntity
+from .remote import EebusRemoteEntity, async_track_remotes
 from .sensor import _get
 
 
@@ -73,6 +74,11 @@ async def async_setup_entry(
         EebusBinarySensor(coordinator, description)
         for description in BINARY_SENSORS
     )
+    async_track_remotes(
+        coordinator,
+        async_add_entities,
+        lambda coord, ski: [EebusRemoteConnectedSensor(coord, ski)],
+    )
 
 
 class EebusBinarySensor(EebusEntity, BinarySensorEntity):
@@ -98,3 +104,27 @@ class EebusBinarySensor(EebusEntity, BinarySensorEntity):
             super().available
             and self.entity_description.available_fn(self.data)
         )
+
+
+class EebusRemoteConnectedSensor(EebusRemoteEntity, BinarySensorEntity):
+    """Whether a remote EEBUS device currently has a SHIP connection."""
+
+    _attr_translation_key = "remote_connected"
+    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
+
+    def __init__(self, coordinator: EebusCoordinator, ski: str) -> None:
+        super().__init__(coordinator, ski, "connected")
+
+    @property
+    def is_on(self) -> bool:
+        return bool(self.conn.get("connected"))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        conn = self.conn
+        return {
+            "ski": self._ski,
+            "trusted": bool(conn.get("trusted")),
+            "primary": bool(conn.get("primary")),
+            "energy_guard_target": bool(conn.get("energy_guard_target")),
+        }

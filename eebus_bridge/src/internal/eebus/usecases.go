@@ -163,96 +163,140 @@ func (m *Manager) refreshLPP() {
 }
 
 // --- Monitoring of Power Consumption (MPC) ---
+//
+// Every remote reports into its own entry under State.Devices. Only the
+// primary remote (the inverter, see isPrimary) is mirrored into the legacy
+// top-level mpc/battery/inverter blocks, so a wallbox that also speaks MPC can
+// no longer overwrite the inverter's values.
 
-func (m *Manager) onMPC(_ string, _ spineapi.DeviceRemoteInterface, entity spineapi.EntityRemoteInterface, event eebusapi.EventType) {
-	if m.mpc == nil {
+func (m *Manager) onMPC(_ string, device spineapi.DeviceRemoteInterface, entity spineapi.EntityRemoteInterface, event eebusapi.EventType) {
+	if m.mpc == nil || device == nil {
 		return
 	}
-	m.store.Update(func(s *store.State) {
-		s.MPC.Supported = true
+	apply := func(dst *store.MPCState) {
+		dst.Supported = true
 		switch event {
 		case mampc.DataUpdatePower:
 			if v, err := m.mpc.Power(entity); err == nil {
-				s.MPC.PowerW = ptr(v)
+				dst.PowerW = ptr(v)
 			}
 		case mampc.DataUpdatePowerPerPhase:
 			if v, err := m.mpc.PowerPerPhase(entity); err == nil {
-				s.MPC.PowerPerPhaseW = v
+				dst.PowerPerPhaseW = v
 			}
 		case mampc.DataUpdateEnergyConsumed:
 			if v, err := m.mpc.EnergyConsumed(entity); err == nil {
-				s.MPC.EnergyConsumedWh = ptr(v)
+				dst.EnergyConsumedWh = ptr(v)
 			}
 		case mampc.DataUpdateEnergyProduced:
 			if v, err := m.mpc.EnergyProduced(entity); err == nil {
-				s.MPC.EnergyProducedWh = ptr(v)
+				dst.EnergyProducedWh = ptr(v)
 			}
 		case mampc.DataUpdateCurrentsPerPhase:
 			if v, err := m.mpc.CurrentPerPhase(entity); err == nil {
-				s.MPC.CurrentPerPhaseA = v
+				dst.CurrentPerPhaseA = v
 			}
 		case mampc.DataUpdateVoltagePerPhase:
 			if v, err := m.mpc.VoltagePerPhase(entity); err == nil {
-				s.MPC.VoltagePerPhaseV = v
+				dst.VoltagePerPhaseV = v
 			}
 		case mampc.DataUpdateFrequency:
 			if v, err := m.mpc.Frequency(entity); err == nil {
-				s.MPC.FrequencyHz = ptr(v)
+				dst.FrequencyHz = ptr(v)
 			}
+		}
+	}
+	ski := device.Ski()
+	primary := m.isPrimary(ski)
+	m.store.Update(func(s *store.State) {
+		s.UpdateDevice(ski, func(d *store.DeviceData) {
+			if d.MPC == nil {
+				d.MPC = &store.MPCState{}
+			}
+			apply(d.MPC)
+		})
+		if primary {
+			apply(&s.MPC)
 		}
 	})
 }
 
 // --- Battery monitoring (VABD ~ MOB) ---
 
-func (m *Manager) onVABD(_ string, _ spineapi.DeviceRemoteInterface, entity spineapi.EntityRemoteInterface, event eebusapi.EventType) {
-	if m.vabd == nil {
+func (m *Manager) onVABD(_ string, device spineapi.DeviceRemoteInterface, entity spineapi.EntityRemoteInterface, event eebusapi.EventType) {
+	if m.vabd == nil || device == nil {
 		return
 	}
-	m.store.Update(func(s *store.State) {
-		s.Battery.Supported = true
+	apply := func(dst *store.BatteryState) {
+		dst.Supported = true
 		switch event {
 		case vabduc.DataUpdatePower:
 			if v, err := m.vabd.Power(entity); err == nil {
-				s.Battery.PowerW = ptr(v)
+				dst.PowerW = ptr(v)
 			}
 		case vabduc.DataUpdateStateOfCharge:
 			if v, err := m.vabd.StateOfCharge(entity); err == nil {
-				s.Battery.StateOfChargePct = ptr(v)
+				dst.StateOfChargePct = ptr(v)
 			}
 		case vabduc.DataUpdateEnergyCharged:
 			if v, err := m.vabd.EnergyCharged(entity); err == nil {
-				s.Battery.EnergyChargedWh = ptr(v)
+				dst.EnergyChargedWh = ptr(v)
 			}
 		case vabduc.DataUpdateEnergyDischarged:
 			if v, err := m.vabd.EnergyDischarged(entity); err == nil {
-				s.Battery.EnergyDischargedWh = ptr(v)
+				dst.EnergyDischargedWh = ptr(v)
 			}
+		}
+	}
+	ski := device.Ski()
+	primary := m.isPrimary(ski)
+	m.store.Update(func(s *store.State) {
+		s.UpdateDevice(ski, func(d *store.DeviceData) {
+			if d.Battery == nil {
+				d.Battery = &store.BatteryState{}
+			}
+			apply(d.Battery)
+		})
+		if primary {
+			apply(&s.Battery)
 		}
 	})
 }
 
 // --- Inverter / PV monitoring (VAPD ~ MOI) ---
 
-func (m *Manager) onVAPD(_ string, _ spineapi.DeviceRemoteInterface, entity spineapi.EntityRemoteInterface, event eebusapi.EventType) {
-	if m.vapd == nil {
+func (m *Manager) onVAPD(_ string, device spineapi.DeviceRemoteInterface, entity spineapi.EntityRemoteInterface, event eebusapi.EventType) {
+	if m.vapd == nil || device == nil {
 		return
 	}
-	m.store.Update(func(s *store.State) {
-		s.Inverter.Supported = true
+	apply := func(dst *store.InverterState) {
+		dst.Supported = true
 		switch event {
 		case vapduc.DataUpdatePower:
 			if v, err := m.vapd.Power(entity); err == nil {
-				s.Inverter.PowerW = ptr(v)
+				dst.PowerW = ptr(v)
 			}
 		case vapduc.DataUpdatePowerNominalPeak:
 			if v, err := m.vapd.PowerNominalPeak(entity); err == nil {
-				s.Inverter.PowerNominalPeakW = ptr(v)
+				dst.PowerNominalPeakW = ptr(v)
 			}
 		case vapduc.DataUpdatePVYieldTotal:
 			if v, err := m.vapd.PVYieldTotal(entity); err == nil {
-				s.Inverter.PVYieldTotalWh = ptr(v)
+				dst.PVYieldTotalWh = ptr(v)
 			}
+		}
+	}
+	ski := device.Ski()
+	primary := m.isPrimary(ski)
+	m.store.Update(func(s *store.State) {
+		s.UpdateDevice(ski, func(d *store.DeviceData) {
+			if d.Inverter == nil {
+				d.Inverter = &store.InverterState{}
+			}
+			apply(d.Inverter)
+		})
+		if primary {
+			apply(&s.Inverter)
 		}
 	})
 }

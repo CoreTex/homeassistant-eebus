@@ -21,6 +21,7 @@ func (m *Manager) RemoteServiceConnected(_ eebusapi.ServiceInterface, identity s
 
 func (m *Manager) RemoteServiceDisconnected(_ eebusapi.ServiceInterface, identity shipapi.ServiceIdentity) {
 	m.logger.Infof("remote disconnected: %s", identity.SKI)
+	m.clearEGTargetFor(identity.SKI)
 	m.upsertConn(identity.SKI, func(c *store.Connection) {
 		c.Connected = false
 	})
@@ -61,6 +62,9 @@ func (m *Manager) ServicePairingDetailUpdate(identity shipapi.ServiceIdentity, d
 
 func (m *Manager) ServiceAutoTrusted(_ eebusapi.ServiceInterface, identity shipapi.ServiceIdentity) {
 	m.logger.Infof("auto-trusted %s", identity.SKI)
+	// Persist so the pairing survives a restart even if auto_accept_trust is
+	// switched off again afterwards.
+	m.setPersistedTrust(identity.SKI, true)
 	m.upsertConn(identity.SKI, func(c *store.Connection) { c.Trusted = true })
 }
 

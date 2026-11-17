@@ -26,6 +26,20 @@ type Connection struct {
 	Model     string `json:"model"`
 	Connected bool   `json:"connected"`
 	Trusted   bool   `json:"trusted"`
+	// Primary marks the device whose measurements feed the top-level
+	// mpc/battery/inverter blocks (the inverter). Other devices only appear
+	// under State.Devices.
+	Primary bool `json:"primary"`
+	// EnergyGuardTarget marks the device that inverter_control limits are
+	// written to.
+	EnergyGuardTarget bool `json:"energy_guard_target"`
+}
+
+// DeviceData holds the measurements reported by one remote device.
+type DeviceData struct {
+	MPC      *MPCState      `json:"mpc,omitempty"`
+	Battery  *BatteryState  `json:"battery,omitempty"`
+	Inverter *InverterState `json:"inverter,omitempty"`
 }
 
 // LimitState is a single LPC/LPP load limit as held by the Controllable System.
@@ -106,16 +120,48 @@ type InverterControl struct {
 
 // State is the complete snapshot serialised to the integration.
 type State struct {
-	Service         ServiceInfo     `json:"service"`
-	Connected       bool            `json:"connected"`
-	Connections     []Connection    `json:"connections"`
-	LPC             LPCState        `json:"lpc"`
-	LPP             LPPState        `json:"lpp"`
-	MPC             MPCState        `json:"mpc"`
-	Battery         BatteryState    `json:"battery"`
-	Inverter        InverterState   `json:"inverter"`
-	InverterControl InverterControl `json:"inverter_control"`
-	UpdatedAt       time.Time       `json:"updated_at"`
+	Service     ServiceInfo  `json:"service"`
+	Connected   bool         `json:"connected"`
+	Connections []Connection `json:"connections"`
+	// PrimarySKI is the remote whose data is mirrored into mpc/battery/inverter.
+	PrimarySKI string `json:"primary_ski"`
+	// Devices holds per-remote measurements keyed by SKI. The map is replaced
+	// (copy-on-write) on every change, so snapshots never share mutable state.
+	Devices         map[string]DeviceData `json:"devices"`
+	LPC             LPCState              `json:"lpc"`
+	LPP             LPPState              `json:"lpp"`
+	MPC             MPCState              `json:"mpc"`
+	Battery         BatteryState          `json:"battery"`
+	Inverter        InverterState         `json:"inverter"`
+	InverterControl InverterControl       `json:"inverter_control"`
+	UpdatedAt       time.Time             `json:"updated_at"`
+}
+
+// UpdateDevice applies mutate to a copy of the device entry for ski and stores
+// it in a fresh Devices map. It must be called from inside an Update mutator.
+func (st *State) UpdateDevice(ski string, mutate func(*DeviceData)) {
+	next := make(map[string]DeviceData, len(st.Devices)+1)
+	for k, v := range st.Devices {
+		next[k] = v
+	}
+	d := next[ski]
+	// Shallow-copy the per-use-case structs so older snapshots keep their values.
+	// Their fields are only ever replaced (never mutated in place) by writers.
+	if d.MPC != nil {
+		c := *d.MPC
+		d.MPC = &c
+	}
+	if d.Battery != nil {
+		c := *d.Battery
+		d.Battery = &c
+	}
+	if d.Inverter != nil {
+		c := *d.Inverter
+		d.Inverter = &c
+	}
+	mutate(&d)
+	next[ski] = d
+	st.Devices = next
 }
 
 // Store is a concurrency-safe container around State with a simple fan-out

@@ -29,6 +29,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import DOMAIN
 from .coordinator import EebusCoordinator
 from .entity import EebusEntity
+from .remote import EebusRemoteEntity, async_track_remotes
 
 
 def _get(data: dict[str, Any], *path: str) -> Any:
@@ -249,6 +250,14 @@ async def async_setup_entry(
     async_add_entities(
         EebusSensor(coordinator, description) for description in descriptions
     )
+    async_track_remotes(
+        coordinator,
+        async_add_entities,
+        lambda coord, ski: [
+            EebusRemoteSensor(coord, ski, description)
+            for description in REMOTE_SENSORS
+        ],
+    )
 
 
 class EebusSensor(EebusEntity, SensorEntity):
@@ -280,3 +289,48 @@ class EebusSensor(EebusEntity, SensorEntity):
         # VABD/VAPD battery/PV data), while they appear automatically as soon as
         # real data arrives.
         return self.native_value is not None
+
+
+# Per-device MPC measurements. They only become available for devices that
+# actually report MPC (the inverter, and wallboxes if they support it).
+REMOTE_SENSORS: tuple[EebusSensorEntityDescription, ...] = (
+    EebusSensorEntityDescription(
+        key="remote_power",
+        translation_key="remote_power",
+        device_class=SensorDeviceClass.POWER,
+        native_unit_of_measurement=UnitOfPower.WATT,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: _get(d, "mpc", "power_w"),
+    ),
+    EebusSensorEntityDescription(
+        key="remote_energy_consumed",
+        translation_key="remote_energy_consumed",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda d: _get(d, "mpc", "energy_consumed_wh"),
+    ),
+)
+
+
+class EebusRemoteSensor(EebusRemoteEntity, SensorEntity):
+    """A measurement of one remote EEBUS device."""
+
+    entity_description: EebusSensorEntityDescription
+
+    def __init__(
+        self,
+        coordinator: EebusCoordinator,
+        ski: str,
+        description: EebusSensorEntityDescription,
+    ) -> None:
+        super().__init__(coordinator, ski, description.key)
+        self.entity_description = description
+
+    @property
+    def native_value(self) -> Any:
+        return self.entity_description.value_fn(self.device_data)
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.native_value is not None

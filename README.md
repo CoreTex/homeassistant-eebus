@@ -99,7 +99,12 @@ automation:
 ```
 
 Services: `eebus.set_consumption_limit`, `eebus.set_production_limit`,
-`eebus.trust_device`.
+`eebus.trust_device`, `eebus.forget_device`.
+
+Every remote EEBUS device the bridge knows (inverter, wallboxes, ...) appears as
+its own device with a **Connected** sensor and a **Trusted** switch. Turn the
+switch on to pair it. With more than one device, set `inverter_ski` in the
+add-on (see the add-on docs).
 
 ## Entities (overview)
 

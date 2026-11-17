@@ -49,6 +49,26 @@ inverter exposes them depends on the device. LPC, LPP and MPC are first-class.
   requests are accepted, or use the `eebus.trust_device` service / the
   integration's pairing controls to trust a discovered SKI on demand.
 
+The bridge aborts the SHIP handshake with any device whose SKI it does not
+trust, so the partner reports "pairing failed" until you trust it here.
+
+SKIs trusted at runtime (the integration's **Trusted** switch per device, the
+`eebus.trust_device` service, or `auto_accept_trust`) are stored in
+`/data/trusted_skis.json` and survive restarts. `eebus.forget_device` removes
+them again.
+
+### Several devices (inverter + wallboxes)
+
+Every known remote shows up in Home Assistant as its own device with a
+**Connected** sensor, a **Trusted** switch, and power/energy sensors if it
+reports MPC. Set `inverter_ski` when more than one device is paired:
+
+- Only the `inverter_ski` device feeds the bridge's top-level power, battery and
+  PV sensors. Without it, the first device that reports measurements is used.
+- Energy-Guard limits (`enable_eg_control`) are only ever written to the
+  `inverter_ski` device. Without it, the first device that offers LPC/LPP stays
+  the target, and a wallbox that pairs later never replaces it.
+
 ## Options
 
 | Option | Default | Description |
