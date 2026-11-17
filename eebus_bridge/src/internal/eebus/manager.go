@@ -51,7 +51,10 @@ type Manager struct {
 	evEntities map[string]spineapi.EntityRemoteInterface
 	// distMu serialises the §14a distribution.
 	distMu sync.Mutex
-	conns  map[string]*store.Connection
+	// lpcExpiry ends incoming consumption limits after their duration and
+	// tracks the §14a simulation.
+	lpcExpiry lpcExpiry
+	conns     map[string]*store.Connection
 
 	// primarySKI is the remote whose measurements are mirrored into the
 	// top-level mpc/battery/inverter blocks (see isPrimary).

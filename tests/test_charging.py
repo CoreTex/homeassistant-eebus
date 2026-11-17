@@ -321,3 +321,42 @@ async def test_eg_control_disabled_repair(hass: HomeAssistant) -> None:
         assert issues.async_get_issue("eebus", issue_id) is None
         assert ent.async_get_entity_id("select", "eebus", f"{BRIDGE}_{KATHREIN}_charge_mode")
         assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_simulate_grid_limit_service(hass: HomeAssistant) -> None:
+    from homeassistant.exceptions import HomeAssistantError
+
+    from custom_components.eebus.api import EebusApiError
+
+    state = copy.deepcopy(STATE)
+    state["lpc"] = {"supported": True, "simulated": True, "limit": {"active": True, "value_w": 4200}}
+    entry = MockConfigEntry(domain="eebus", unique_id=BRIDGE,
+                            data={"host": "127.0.0.1", "port": 7050, "token": None})
+    entry.add_to_hass(hass)
+    with (
+        patch("custom_components.eebus.api.EebusApiClient.get_state",
+              AsyncMock(side_effect=lambda: copy.deepcopy(state))),
+        patch("custom_components.eebus.api.EebusApiClient.listen", _never),
+        patch("custom_components.eebus.api.EebusApiClient.simulate_grid_limit", AsyncMock()) as sim,
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        await hass.services.async_call("eebus", "simulate_grid_limit", {}, blocking=True)
+        sim.assert_awaited_with(4200.0, True, 900.0)  # defaults: 4.2 kW for 15 min
+        await hass.services.async_call("eebus", "simulate_grid_limit",
+                                       {"value_w": 6000, "duration_s": 60}, blocking=True)
+        sim.assert_awaited_with(6000.0, True, 60.0)
+        await hass.services.async_call("eebus", "simulate_grid_limit", {"active": False}, blocking=True)
+        sim.assert_awaited_with(4200.0, False, 900.0)
+
+        simulated = er.async_get(hass).async_get_entity_id("binary_sensor", "eebus", f"{BRIDGE}_lpc_simulated")
+        assert simulated, "simulation sensor missing"
+        assert hass.states.get(simulated).state == "on"
+        assert hass.states.get("binary_sensor.eebus_bridge_consumption_limit_active").state == "on"
+
+        # a refusal of the bridge surfaces as an error
+        sim.side_effect = EebusApiError("a real control box is connected; simulation refused")
+        with pytest.raises(HomeAssistantError, match="simulation refused"):
+            await hass.services.async_call("eebus", "simulate_grid_limit", {}, blocking=True)
+        assert await hass.config_entries.async_unload(entry.entry_id)

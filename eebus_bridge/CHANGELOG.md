@@ -8,6 +8,13 @@
 - The state reports the enabled add-on features (`service.features`); the
   integration raises a repair issue when wallboxes/heat pumps are found but
   `enable_eg_control` is off, and shows a per-device *Device type* sensor.
+- **Fix:** an incoming consumption limit with a duration now ends when the
+  duration is over (eebus-go keeps it active), so a §14a share no longer
+  stays in force after the grid operator's limit ended.
+- **§14a simulation** (`enable_lpc_simulation`, off by default): service
+  `eebus.simulate_grid_limit` injects an incoming limit to test the whole
+  chain; refused while a real control box is connected or a real limit is
+  active.
 
 ## 0.3.0-dev
 

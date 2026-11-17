@@ -88,6 +88,11 @@ func (s *stubController) SetEVCurrent(ski string, c *float64) error {
 	return s.maybeFail("SetEVCurrent")
 }
 
+func (s *stubController) SimulateGridLimit(v float64, a bool, _ float64) error {
+	s.lastConsW, s.lastActive = v, a
+	return s.maybeFail("SimulateGridLimit")
+}
+
 func newTestServer(token string) (*httptest.Server, *stubController, *store.Store) {
 	st := store.New()
 	ctrl := &stubController{}

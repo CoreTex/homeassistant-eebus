@@ -60,7 +60,10 @@ type LimitState struct {
 
 // LPCState is the Controllable-System view of "Limitation of Power Consumption".
 type LPCState struct {
-	Supported         bool       `json:"supported"`
+	Supported bool `json:"supported"`
+	// Simulated is true while the active limit comes from the §14a
+	// simulation (enable_lpc_simulation) rather than a control box.
+	Simulated         bool       `json:"simulated"`
 	Limit             LimitState `json:"limit"`
 	FailsafePowerW    float64    `json:"failsafe_power_w"`
 	FailsafeDurationS float64    `json:"failsafe_duration_s"`

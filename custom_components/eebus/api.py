@@ -104,6 +104,15 @@ class EebusApiClient:
     async def set_lpp_nominal_max(self, value_w: float) -> None:
         await self._post("/api/lpp/nominal_max", {"value_w": value_w})
 
+    async def simulate_grid_limit(
+        self, value_w: float, active: bool, duration_s: float
+    ) -> None:
+        """Simulate (or end) an incoming §14a limit from the grid operator."""
+        await self._post(
+            "/api/lpc/simulate",
+            {"value_w": value_w, "active": active, "duration_s": duration_s},
+        )
+
     # --- per-device control ---
 
     async def set_device_limit(

@@ -42,6 +42,10 @@ type Config struct {
 	// Requires enable_lpc, plus enable_eg_control and/or enable_ev.
 	DistributeLPC bool `json:"distribute_lpc"`
 
+	// EnableLPCSimulation allows simulating an incoming §14a limit from Home
+	// Assistant to test the whole chain without a control box.
+	EnableLPCSimulation bool `json:"enable_lpc_simulation"`
+
 	// Optional nominal maximum power seeds for the Controllable System, in watts.
 	// 0 means "leave unset" (the value can still be changed at runtime via the
 	// number entities / API). These persist the §14a-relevant nominal maxima

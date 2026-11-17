@@ -53,6 +53,13 @@ BINARY_SENSORS: tuple[EebusBinarySensorEntityDescription, ...] = (
         value_fn=lambda d: bool(d.get("connected")),
     ),
     EebusBinarySensorEntityDescription(
+        key="lpc_simulated",
+        translation_key="lpc_simulated",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda d: bool(_get(d, "lpc", "simulated")),
+        available_fn=lambda d: bool(_get(d, "lpc", "supported")),
+    ),
+    EebusBinarySensorEntityDescription(
         key="lpc_distribution_active",
         translation_key="lpc_distribution_active",
         device_class=BinarySensorDeviceClass.RUNNING,

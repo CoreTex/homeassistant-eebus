@@ -153,6 +153,17 @@ automation:
     duration_s: 7200
 ```
 
+**Test the §14a chain without a control box** (add-on option
+`enable_lpc_simulation`; with `distribute_lpc` the limit is shared among the
+wallboxes and heat pumps and lifted after the duration):
+
+```yaml
+- service: eebus.simulate_grid_limit
+  data:
+    value_w: 4200
+    duration_s: 900
+```
+
 **Notify when the grid operator limits the home (§14a):**
 
 ```yaml
@@ -171,7 +182,7 @@ automation:
 
 Services: `eebus.set_consumption_limit`, `eebus.set_production_limit` (leading
 inverter), `eebus.set_device_limit` (any device), `eebus.trust_device`,
-`eebus.forget_device`.
+`eebus.forget_device`, `eebus.simulate_grid_limit` (testing).
 
 ## Development
 

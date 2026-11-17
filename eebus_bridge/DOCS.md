@@ -116,6 +116,20 @@ wallbox charging current (OPEV). Inverters are not included. The share is
 removed when the incoming limit ends. This runs inside the add-on, so it keeps
 working while Home Assistant restarts.
 
+An incoming limit with a duration ends automatically when the duration is
+over (the bridge returns to "unlimited", as LPC requires).
+
+### Testing without a control box (`enable_lpc_simulation`)
+
+With `enable_lpc_simulation` the service `eebus.simulate_grid_limit`
+(`value_w`, `duration_s`, `active`) injects an incoming limit as if the grid
+operator's control box had sent it. It runs through the normal path - state,
+`distribute_lpc` share-out to wallboxes/heat pumps, expiry - and the
+*§14a simulation active* sensor shows it. For safety the simulation is refused
+while a real control box is connected or a real limit is active, so it can
+never override or lift a genuine grid operator limit. A simulated limit is your
+own energy management and no substitute for §14a control by the grid operator.
+
 ## Options
 
 | Option | Default | Description |
@@ -134,6 +148,7 @@ working while Home Assistant restarts.
 | `enable_mgcp` | `true` | Monitoring of the grid connection point (smart meter) |
 | `enable_ev` | `true` | Wallbox/vehicle use cases (EVSECC, EVCC, EVCEM, EVSOC, OPEV) |
 | `distribute_lpc` | `false` | Share an incoming §14a consumption limit among wallboxes and heat pumps |
+| `enable_lpc_simulation` | `false` | Allow simulating an incoming §14a limit from Home Assistant (testing only) |
 | `lpc_nominal_max_w` | `0` | Seed the consumption nominal maximum (W); `0` = leave unset. Relevant for §14a. |
 | `lpp_nominal_max_w` | `0` | Seed the production nominal maximum (W); `0` = leave unset. |
 | `auto_accept_trust` | `false` | Auto-trust any remote that tries to pair |
@@ -152,6 +167,7 @@ working while Home Assistant restarts.
 - `POST /api/lpc/failsafe` / `POST /api/lpp/failsafe` – `{power_w?, duration_s?}`
 - `POST /api/lpc/nominal_max` / `POST /api/lpp/nominal_max` – `{value_w}`
 - `GET /api/pairing`, `POST /api/pairing/trust` `{ski}`, `POST /api/pairing/forget` `{ski}`
+- `POST /api/lpc/simulate` – `{value_w, active, duration_s}` (simulated §14a limit, needs `enable_lpc_simulation`)
 - `POST /api/devices/{ski}/lpc` / `.../lpp` – `{target_w?, active?, duration_s?}` (stage and/or apply a device limit)
 - `POST /api/devices/{ski}/failsafe` – `{power_w?, duration_s?}` (device failsafe)
 - `POST /api/devices/{ski}/ev_current` – `{current_a}` (A per phase, 0 = pause) or `{release: true}`

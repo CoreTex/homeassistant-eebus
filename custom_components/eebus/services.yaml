@@ -110,3 +110,29 @@ set_device_limit:
           max: 86400
           step: 60
           unit_of_measurement: s
+
+simulate_grid_limit:
+  fields:
+    value_w:
+      required: false
+      default: 4200
+      selector:
+        number:
+          min: 0
+          max: 100000
+          step: 100
+          unit_of_measurement: W
+    active:
+      required: false
+      default: true
+      selector:
+        boolean:
+    duration_s:
+      required: false
+      default: 900
+      selector:
+        number:
+          min: 0
+          max: 86400
+          step: 60
+          unit_of_measurement: s

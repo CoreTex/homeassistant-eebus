@@ -32,6 +32,7 @@ SERVICE_SET_PRODUCTION_LIMIT = "set_production_limit"
 SERVICE_TRUST_DEVICE = "trust_device"
 SERVICE_FORGET_DEVICE = "forget_device"
 SERVICE_SET_DEVICE_LIMIT = "set_device_limit"
+SERVICE_SIMULATE_GRID_LIMIT = "simulate_grid_limit"
 
 # --- Options (charging controller) ---
 # Grid power sensor used for PV-surplus charging. If unset, the bridge's grid

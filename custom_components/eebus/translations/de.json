@@ -81,6 +81,15 @@
         "active": { "name": "Aktiv", "description": "Limit anwenden (true) oder aufheben (false). Weglassen, um nur den Wert vorzumerken." },
         "duration_s": { "name": "Dauer", "description": "Dauer in Sekunden (0 = bis zur Aufhebung)." }
       }
+    },
+    "simulate_grid_limit": {
+      "name": "Netzbetreiber-Limit simulieren (§14a)",
+      "description": "NUR ZUM TESTEN: ein eingehendes §14a-Verbrauchslimit des Netzbetreibers simulieren, als hätte eine Steuerbox es gesendet. Läuft durch die normale Verteilung und endet nach der Dauer. Erfordert enable_lpc_simulation im Add-on und wird verweigert, solange eine echte Steuerbox verbunden oder ein echtes Limit aktiv ist.",
+      "fields": {
+        "value_w": { "name": "Limit", "description": "Gesamt-Verbrauchslimit in Watt." },
+        "active": { "name": "Aktiv", "description": "Simulation starten (true) oder beenden (false)." },
+        "duration_s": { "name": "Dauer", "description": "Dauer in Sekunden (0 = bis zum Beenden)." }
+      }
     }
   },
   "entity": {
@@ -183,7 +192,8 @@
       "lpc_distribution_active": { "name": "§14a-Verteilung aktiv" },
       "ev_plugged": { "name": "Fahrzeug eingesteckt" },
       "ev_sleep": { "name": "Fahrzeug schläft" },
-      "lpc_limited": { "name": "Verbrauch begrenzt" }
+      "lpc_limited": { "name": "Verbrauch begrenzt" },
+      "lpc_simulated": { "name": "§14a-Simulation aktiv" }
     },
     "number": {
       "failsafe_consumption_power": { "name": "Failsafe-Verbrauchsleistung" },

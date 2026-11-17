@@ -26,6 +26,7 @@ from .const import (
     SERVICE_SET_CONSUMPTION_LIMIT,
     SERVICE_SET_DEVICE_LIMIT,
     SERVICE_SET_PRODUCTION_LIMIT,
+    SERVICE_SIMULATE_GRID_LIMIT,
     SERVICE_TRUST_DEVICE,
 )
 from .coordinator import EebusCoordinator
@@ -94,6 +95,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             SERVICE_TRUST_DEVICE,
             SERVICE_FORGET_DEVICE,
             SERVICE_SET_DEVICE_LIMIT,
+            SERVICE_SIMULATE_GRID_LIMIT,
         ):
             hass.services.async_remove(DOMAIN, service)
     return unload_ok
@@ -199,6 +201,28 @@ def _async_register_services(hass: HomeAssistant) -> None:
 
     hass.services.async_register(
         DOMAIN, SERVICE_SET_DEVICE_LIMIT, _handle_device_limit, schema=device_limit_schema
+    )
+
+    simulate_schema = vol.Schema(
+        {
+            vol.Optional("value_w", default=4200): vol.All(vol.Coerce(float), vol.Range(min=0)),
+            vol.Optional("active", default=True): cv.boolean,
+            vol.Optional("duration_s", default=900): vol.All(vol.Coerce(float), vol.Range(min=0)),
+        }
+    )
+
+    async def _handle_simulate(call: ServiceCall) -> None:
+        for coord in _coordinators(hass):
+            try:
+                await coord.client.simulate_grid_limit(
+                    call.data["value_w"], call.data["active"], call.data["duration_s"]
+                )
+            except EebusApiError as err:
+                raise HomeAssistantError(str(err)) from err
+            await coord.async_request_refresh()
+
+    hass.services.async_register(
+        DOMAIN, SERVICE_SIMULATE_GRID_LIMIT, _handle_simulate, schema=simulate_schema
     )
 
 

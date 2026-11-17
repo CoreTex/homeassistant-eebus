@@ -63,6 +63,15 @@
         "active": { "name": "Active", "description": "Apply (true) or remove (false) the limit. Omit to only stage the value." },
         "duration_s": { "name": "Duration", "description": "Duration in seconds (0 = until removed)." }
       }
+    },
+    "simulate_grid_limit": {
+      "name": "Simulate grid operator limit (§14a)",
+      "description": "TEST ONLY: simulate an incoming §14a consumption limit from the grid operator, as if a control box had sent it. Runs through the normal distribution and ends after the duration. Requires enable_lpc_simulation in the add-on and is refused while a real control box is connected or a real limit is active.",
+      "fields": {
+        "value_w": { "name": "Limit", "description": "Total consumption limit in watts." },
+        "active": { "name": "Active", "description": "Start (true) or end (false) the simulation." },
+        "duration_s": { "name": "Duration", "description": "Duration in seconds (0 = until ended)." }
+      }
     }
   },
   "entity": {
@@ -165,7 +174,8 @@
       "lpc_distribution_active": { "name": "§14a distribution active" },
       "ev_plugged": { "name": "Vehicle plugged in" },
       "ev_sleep": { "name": "Vehicle sleeping" },
-      "lpc_limited": { "name": "Consumption limited" }
+      "lpc_limited": { "name": "Consumption limited" },
+      "lpc_simulated": { "name": "§14a simulation active" }
     },
     "number": {
       "failsafe_consumption_power": { "name": "Failsafe consumption power" },

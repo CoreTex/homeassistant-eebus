@@ -36,6 +36,7 @@ type Controller interface {
 	SetDeviceProductionLimit(ski string, targetW *float64, active *bool, durationS *float64) error
 	SetDeviceFailsafe(ski string, powerW, durationS *float64) error
 	SetEVCurrent(ski string, currentA *float64) error
+	SimulateGridLimit(valueW float64, active bool, durationS float64) error
 }
 
 // Server is the HTTP/WebSocket frontend.
@@ -75,6 +76,7 @@ func New(addr, token, version string, st *store.Store, ctrl Controller) *Server 
 	mux.HandleFunc("POST /api/lpc/failsafe", s.auth(s.handleFailsafe(false)))
 	mux.HandleFunc("POST /api/lpp/failsafe", s.auth(s.handleFailsafe(true)))
 	mux.HandleFunc("POST /api/lpc/nominal_max", s.auth(s.handleNominalMax(false)))
+	mux.HandleFunc("POST /api/lpc/simulate", s.auth(s.handleSimulate))
 	mux.HandleFunc("POST /api/lpp/nominal_max", s.auth(s.handleNominalMax(true)))
 	mux.HandleFunc("POST /api/devices/{ski}/lpc", s.auth(s.handleDeviceLimit(false)))
 	mux.HandleFunc("POST /api/devices/{ski}/lpp", s.auth(s.handleDeviceLimit(true)))
@@ -315,6 +317,14 @@ func (s *Server) handleEVCurrent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respond(w, s.ctrl.SetEVCurrent(r.PathValue("ski"), req.CurrentA))
+}
+
+func (s *Server) handleSimulate(w http.ResponseWriter, r *http.Request) {
+	var req limitReq
+	if !decode(w, r, &req) {
+		return
+	}
+	respond(w, s.ctrl.SimulateGridLimit(req.ValueW, req.Active, req.DurationS))
 }
 
 type skiReq struct {

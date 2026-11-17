@@ -119,6 +119,10 @@ func (m *Manager) onCsLPC(_ string, device spineapi.DeviceRemoteInterface, _ spi
 	}
 	switch event {
 	case cslpc.LimitWriteApprovalRequired:
+		// a real Energy Guard writes a limit: it supersedes any simulation
+		m.lpcExpiry.mu.Lock()
+		m.lpcExpiry.simulated = false
+		m.lpcExpiry.mu.Unlock()
 		if m.cfg.AutoApproveLimits {
 			for mc := range m.csLPC.PendingConsumptionLimits() {
 				m.csLPC.ApproveOrDenyConsumptionLimit(mc, true, "")
@@ -144,8 +148,9 @@ func (m *Manager) refreshLPC() {
 	}
 	st := store.LPCState{Supported: true}
 	if limit, err := m.csLPC.ConsumptionLimit(); err == nil {
-		st.Limit = toLimitState(limit)
+		st.Limit = m.lpcLimitState(limit)
 	}
+	st.Simulated = st.Limit.Active && m.lpcSimulated()
 	if v, _, err := m.csLPC.FailsafeConsumptionActivePowerLimit(); err == nil {
 		st.FailsafePowerW = v
 	}
