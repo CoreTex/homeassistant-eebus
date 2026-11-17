@@ -19,6 +19,8 @@ import (
 	eglpc "github.com/enbility/eebus-go/usecases/eg/lpc"
 	eglpp "github.com/enbility/eebus-go/usecases/eg/lpp"
 	mgcpuc "github.com/enbility/eebus-go/usecases/ma/mgcp"
+	mobuc "github.com/enbility/eebus-go/usecases/ma/mob"
+	moiuc "github.com/enbility/eebus-go/usecases/ma/moi"
 	mampc "github.com/enbility/eebus-go/usecases/ma/mpc"
 	spineapi "github.com/enbility/spine-go/api"
 )
@@ -35,11 +37,17 @@ func (m *Manager) setupUseCases() {
 		m.store.Update(func(s *store.State) { s.MPC.Supported = true })
 	}
 	if m.cfg.EnableBattery {
+		// MOB: battery of an inverter (e.g. hybrid inverters); VABD: aggregated
+		// battery data. Both feed the battery block.
+		m.mob = mobuc.NewMOB(le, m.onMOB)
+		m.svc.AddUseCase(m.mob)
 		m.vabd = vabduc.NewVABD(le, m.onVABD)
 		m.svc.AddUseCase(m.vabd)
 		m.store.Update(func(s *store.State) { s.Battery.Supported = true })
 	}
 	if m.cfg.EnableInverter {
+		m.moi = moiuc.NewMOI(le, m.onMOI)
+		m.svc.AddUseCase(m.moi)
 		m.vapd = vapduc.NewVAPD(le, m.onVAPD)
 		m.svc.AddUseCase(m.vapd)
 		m.store.Update(func(s *store.State) { s.Inverter.Supported = true })

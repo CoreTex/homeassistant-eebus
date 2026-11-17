@@ -71,11 +71,15 @@ offers whatever that device supports:
 | **Grid meter** | entity `GridConnectionPointOfPremises`, MGCP | grid power (positive = import), feed-in/consumption energy, feed-in limitation |
 | **Control box** | device type `ElectricitySupplySystem`, sends LPC/LPP to us | the grid operator's limits arrive at the bridge (Controllable System) |
 
-Not available (missing in `eebus-go`): heat-pump specific use cases such as
-*Optimization of Self-Consumption by Heat Pump Compressor Flexibility*, hot
-water or room temperature control, and the inverter/battery use cases MOI, MOB
-and Control of Battery. Heat pumps can therefore be **dimmed** (LPC) and
-**monitored** (MPC), but not boosted.
+Inverter and battery monitoring (MOI, MOB) come from the `CoreTex/eebus-go`
+fork the add-on builds against (to be contributed upstream). For a hybrid
+inverter MOI's *AC power* includes the battery; it is shown positive while the
+inverter feeds the AC side.
+
+Not yet used by the bridge: *Control of Battery* and the heat-pump use cases
+(OHPCF exists in `eebus-go`, hot water/room temperature control do not).
+Heat pumps can therefore be **dimmed** (LPC) and **monitored** (MPC), but not
+boosted yet.
 
 Real-world example: a **KATHREIN AC40** announces only `limitationOfPowerConsumption`
 (Controllable System) on one EVSE entity. It reports no measurements, but the

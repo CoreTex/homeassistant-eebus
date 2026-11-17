@@ -304,8 +304,8 @@ func (m *Manager) applyLimit(kind LimitKind, ski string, force bool) error {
 	return nil
 }
 
-func (m *Manager) writeResultCB(ski string, kind LimitKind) func(model.ResultDataType) {
-	return func(r model.ResultDataType) {
+func (m *Manager) writeResultCB(ski string, kind LimitKind) func(model.ResultDataType, model.MsgCounterType) {
+	return func(r model.ResultDataType, _ model.MsgCounterType) {
 		if r.ErrorNumber != nil && *r.ErrorNumber != model.ErrorNumberTypeNoError {
 			desc := ""
 			if r.Description != nil {

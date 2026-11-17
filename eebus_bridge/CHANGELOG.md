@@ -17,6 +17,11 @@
 - **§14a distribution** (`distribute_lpc`, opt-in): an incoming consumption
   limit is shared equally among the connected wallboxes and heat pumps.
 - **Site aggregates:** total PV, battery, grid, charging and heat-pump power.
+- **MOI / MOB:** Monitoring of Inverter (AC power, energy, yield, current,
+  voltage, frequency) and Monitoring of Battery (power, SoC, SoH, energy,
+  temperature), e.g. for KOSTAL PLENTICORE G3. Built against the fork
+  `CoreTex/eebus-go` (upstream `dev` + MOI/MOB), which also brings the newer
+  upstream fixes; the result callbacks gained a message counter.
 
 ## 0.2.0-dev
 

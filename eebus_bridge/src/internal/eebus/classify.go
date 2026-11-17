@@ -15,6 +15,8 @@ const (
 	ucMGCP      = "mgcp"
 	ucVAPD      = "vapd"
 	ucVABD      = "vabd"
+	ucMOI       = "moi"
+	ucMOB       = "mob"
 	ucEgLPC     = "eg_lpc" // device accepts consumption limits from us
 	ucEgLPP     = "eg_lpp" // device accepts production limits from us
 	ucEVSECC    = "evsecc"
@@ -68,7 +70,7 @@ func classify(deviceType string, entityTypes, useCases []string) string {
 	case anyOf(entityTypes, heatPumpEntities):
 		return store.CategoryHeatPump
 	case deviceType == string(model.DeviceTypeTypeInverter),
-		anyOf(entityTypes, inverterEntities), anyOf(useCases, []string{ucVAPD, ucVABD}):
+		anyOf(entityTypes, inverterEntities), anyOf(useCases, []string{ucVAPD, ucVABD, ucMOI, ucMOB}):
 		return store.CategoryInverter
 	case anyOf(entityTypes, gridEntities), slices.Contains(useCases, ucMGCP):
 		return store.CategoryGridMeter

@@ -43,13 +43,13 @@ Go stack in its own container; the integration creates entities and talks to it.
 | **LPC** – Limitation of Power Consumption | `cs/lpc` (+ `eg/lpc`) | Receives & **holds** consumption limits; can also send them |
 | **LPP** – Limitation of Power Production | `cs/lpp` (+ `eg/lpp`) | Receives & **holds** production limits; can also send them |
 | **MPC** – Monitoring of Power Consumption | `ma/mpc` | Reads power, energy, current, voltage, frequency |
-| **MOI** – Monitoring of Inverter | `cem/vapd`* | Reads PV power, yield, nominal peak |
-| **MOB** – Monitoring of Battery | `cem/vabd`* | Reads battery power, state of charge, energy |
+| **MOI** – Monitoring of Inverter | `ma/moi`* (+ `cem/vapd`) | Reads inverter AC power, energy, yield, current, voltage, frequency |
+| **MOB** – Monitoring of Battery | `ma/mob`* (+ `cem/vabd`) | Reads battery power, state of charge/health, energy, temperature |
 
-\* **MOI/MOB caveat:** `eebus-go` does not yet provide dedicated *Monitoring of
-Inverter*/*Battery* use cases. This project uses the library's **VAPD** and
-**VABD** use cases, which expose the same underlying inverter/battery data.
-**LPC, LPP and MPC are first-class.**
+\* **MOI/MOB** are not in upstream `eebus-go` yet. The add-on builds against
+the fork [`CoreTex/eebus-go`](https://github.com/CoreTex/eebus-go/tree/feature/uc-ma-moi-mob)
+(upstream `dev` + MOI/MOB), which is intended to be contributed upstream.
+The aggregated VAPD/VABD use cases are supported as well.
 
 ## Installation
 

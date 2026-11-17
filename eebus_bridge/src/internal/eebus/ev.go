@@ -356,8 +356,8 @@ func (m *Manager) applyEV(ski string, force bool) error {
 	return nil
 }
 
-func (m *Manager) evWriteResultCB(ski string) func(model.ResultDataType) {
-	return func(r model.ResultDataType) {
+func (m *Manager) evWriteResultCB(ski string) func(model.ResultDataType, model.MsgCounterType) {
+	return func(r model.ResultDataType, _ model.MsgCounterType) {
 		if r.ErrorNumber != nil && *r.ErrorNumber != model.ErrorNumberTypeNoError {
 			desc := ""
 			if r.Description != nil {

@@ -25,3 +25,5 @@ require (
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/tools v0.42.0 // indirect
 )
+
+replace github.com/enbility/eebus-go => github.com/CoreTex/eebus-go v0.7.1-0.20261117201214-482aaef3433e

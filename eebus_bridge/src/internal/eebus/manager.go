@@ -70,6 +70,8 @@ type Manager struct {
 	vabd  ucapi.CemVABDInterface
 	vapd  ucapi.CemVAPDInterface
 	mgcp  ucapi.MaMGCPInterface
+	moi   ucapi.MaMOIInterface
+	mob   ucapi.MaMOBInterface
 
 	// wallbox / vehicle use cases
 	evsecc ucapi.CemEVSECCInterface

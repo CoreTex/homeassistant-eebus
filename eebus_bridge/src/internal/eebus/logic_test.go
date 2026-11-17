@@ -30,6 +30,8 @@ func TestClassifyRealDevices(t *testing.T) {
 		{"inverter with meter", "Inverter", []string{"Inverter", "GridConnectionPointOfPremises"}, []string{ucMGCP}, store.CategoryInverter},
 		// A wallbox reporting MPC is still a wallbox.
 		{"wallbox with mpc", "ChargingStation", []string{"EVSE"}, []string{ucMPC}, store.CategoryWallbox},
+		{"inverter by MOI only", "Generic", nil, []string{ucMOI}, store.CategoryInverter},
+		{"inverter by MOB only", "Generic", nil, []string{ucMOB}, store.CategoryInverter},
 		{"unknown", "", nil, nil, store.CategoryGeneric},
 	}
 	for _, c := range cases {
@@ -234,5 +236,12 @@ func TestRecomputeSite(t *testing.T) {
 	}
 	if site.BatteryPowerW != nil {
 		t.Error("no battery reported: must stay nil")
+	}
+
+	ac1, ac2 := 2000.0, -500.0
+	s.UpdateDevice(skiInverter, func(d *store.DeviceData) { d.InverterAC = &store.InverterACState{PowerW: &ac1} })
+	s.UpdateDevice(skiWallbox2, func(d *store.DeviceData) { d.InverterAC = &store.InverterACState{PowerW: &ac2} })
+	if s.Site.InverterACPowerW == nil || *s.Site.InverterACPowerW != 1500 {
+		t.Errorf("inverter AC sum = %v, want 1500", s.Site.InverterACPowerW)
 	}
 }

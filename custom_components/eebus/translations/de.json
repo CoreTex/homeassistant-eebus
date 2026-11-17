@@ -153,7 +153,15 @@
       "site_ev_charging_power": { "name": "Ladeleistung gesamt" },
       "site_heat_pump_power": { "name": "Wärmepumpenleistung gesamt" },
       "lpc_distribution_share": { "name": "§14a-Anteil je Gerät" },
-      "pv_surplus": { "name": "PV-Überschuss" }
+      "pv_surplus": { "name": "PV-Überschuss" },
+      "remote_battery_soh": { "name": "Batterie-Gesundheit" },
+      "remote_battery_temperature": { "name": "Batterietemperatur" },
+      "remote_inverter_ac_power": { "name": "Wechselrichter AC-Leistung" },
+      "remote_inverter_energy_produced": { "name": "Wechselrichter Energie erzeugt" },
+      "remote_inverter_energy_consumed": { "name": "Wechselrichter Energie bezogen" },
+      "remote_inverter_yield_total": { "name": "Wechselrichter Ertrag gesamt" },
+      "remote_inverter_frequency": { "name": "Wechselrichter-Frequenz" },
+      "site_inverter_ac_power": { "name": "Wechselrichter AC-Leistung gesamt" }
     },
     "binary_sensor": {
       "consumption_limit_active": { "name": "Verbrauchslimit aktiv" },

@@ -21,6 +21,7 @@ from homeassistant.const import (
     UnitOfEnergy,
     UnitOfFrequency,
     UnitOfPower,
+    UnitOfTemperature,
     UnitOfTime,
 )
 from homeassistant.core import HomeAssistant
@@ -255,6 +256,7 @@ def _site(key: str, field: str, category: EntityCategory | None = None) -> Eebus
 SITE_SENSORS: tuple[EebusSensorEntityDescription, ...] = (
     _site("site_pv_power", "pv_power_w"),
     _site("site_battery_power", "battery_power_w"),
+    _site("site_inverter_ac_power", "inverter_ac_power_w"),
     _site("site_grid_power", "grid_power_w"),
     _site("site_ev_charging_power", "ev_charging_power_w"),
     _site("site_heat_pump_power", "heat_pump_power_w"),
@@ -376,6 +378,14 @@ REMOTE_SENSORS: tuple[EebusSensorEntityDescription, ...] = (
     _remote("remote_battery_soc", "battery", "state_of_charge_pct", device_class=SensorDeviceClass.BATTERY, unit=PERCENTAGE),
     _remote("remote_battery_energy_charged", "battery", "energy_charged_wh", device_class=_E, unit=_WH, state_class=_TI),
     _remote("remote_battery_energy_discharged", "battery", "energy_discharged_wh", device_class=_E, unit=_WH, state_class=_TI),
+    _remote("remote_battery_soh", "battery", "state_of_health_pct", unit=PERCENTAGE, category=_DIAG),
+    _remote("remote_battery_temperature", "battery", "temperature_c", device_class=SensorDeviceClass.TEMPERATURE, unit=UnitOfTemperature.CELSIUS, category=_DIAG),
+    # Inverter AC side (MOI): positive = feeding the AC side
+    _remote("remote_inverter_ac_power", "inverter_ac", "power_w", device_class=_P, unit=_W),
+    _remote("remote_inverter_energy_produced", "inverter_ac", "energy_produced_wh", device_class=_E, unit=_WH, state_class=_TI),
+    _remote("remote_inverter_energy_consumed", "inverter_ac", "energy_consumed_wh", device_class=_E, unit=_WH, state_class=_TI),
+    _remote("remote_inverter_yield_total", "inverter_ac", "yield_total_wh", device_class=_E, unit=_WH, state_class=_TI),
+    _remote("remote_inverter_frequency", "inverter_ac", "frequency_hz", device_class=SensorDeviceClass.FREQUENCY, unit=UnitOfFrequency.HERTZ, category=_DIAG),
     # Grid connection point (MGCP): positive = import
     _remote("remote_grid_power", "grid", "power_w", device_class=_P, unit=_W),
     _remote("remote_grid_energy_feed_in", "grid", "energy_feed_in_wh", device_class=_E, unit=_WH, state_class=_TI),

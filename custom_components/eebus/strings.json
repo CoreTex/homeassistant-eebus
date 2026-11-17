@@ -135,7 +135,15 @@
       "site_ev_charging_power": { "name": "Total charging power" },
       "site_heat_pump_power": { "name": "Total heat pump power" },
       "lpc_distribution_share": { "name": "§14a share per device" },
-      "pv_surplus": { "name": "PV surplus" }
+      "pv_surplus": { "name": "PV surplus" },
+      "remote_battery_soh": { "name": "Battery state of health" },
+      "remote_battery_temperature": { "name": "Battery temperature" },
+      "remote_inverter_ac_power": { "name": "Inverter AC power" },
+      "remote_inverter_energy_produced": { "name": "Inverter energy produced" },
+      "remote_inverter_energy_consumed": { "name": "Inverter energy consumed" },
+      "remote_inverter_yield_total": { "name": "Inverter yield total" },
+      "remote_inverter_frequency": { "name": "Inverter frequency" },
+      "site_inverter_ac_power": { "name": "Total inverter AC power" }
     },
     "binary_sensor": {
       "consumption_limit_active": { "name": "Consumption limit active" },

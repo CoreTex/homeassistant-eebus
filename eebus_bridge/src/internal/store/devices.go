@@ -28,9 +28,13 @@ type DeviceData struct {
 	MPC      *MPCState      `json:"mpc,omitempty"`
 	Battery  *BatteryState  `json:"battery,omitempty"`
 	Inverter *InverterState `json:"inverter,omitempty"`
-	Grid     *GridState     `json:"grid,omitempty"`
-	EV       *EVState       `json:"ev,omitempty"`
-	Control  *DeviceControl `json:"control,omitempty"`
+	// InverterAC is MOI (Monitoring of Inverter): the AC side of an inverter.
+	// For a hybrid inverter this includes the battery, so it differs from the
+	// PV power in Inverter (VAPD).
+	InverterAC *InverterACState `json:"inverter_ac,omitempty"`
+	Grid       *GridState       `json:"grid,omitempty"`
+	EV         *EVState         `json:"ev,omitempty"`
+	Control    *DeviceControl   `json:"control,omitempty"`
 }
 
 // HasUseCase reports whether the device announced the given capability.
@@ -49,6 +53,21 @@ type GridState struct {
 	CurrentPerPhaseA      []float64 `json:"current_per_phase_a,omitempty"`
 	VoltagePerPhaseV      []float64 `json:"voltage_per_phase_v,omitempty"`
 	FrequencyHz           *float64  `json:"frequency_hz,omitempty"`
+}
+
+// InverterACState is MOI data. PowerW and PowerPerPhaseW are positive while
+// the inverter feeds the AC side (production) and negative while it draws
+// from it (e.g. charging the battery from the grid).
+type InverterACState struct {
+	Supported        bool      `json:"supported"`
+	PowerW           *float64  `json:"power_w,omitempty"`
+	PowerPerPhaseW   []float64 `json:"power_per_phase_w,omitempty"`
+	EnergyProducedWh *float64  `json:"energy_produced_wh,omitempty"`
+	EnergyConsumedWh *float64  `json:"energy_consumed_wh,omitempty"`
+	YieldTotalWh     *float64  `json:"yield_total_wh,omitempty"`
+	CurrentPerPhaseA []float64 `json:"current_per_phase_a,omitempty"`
+	VoltagePerPhaseV []float64 `json:"voltage_per_phase_v,omitempty"`
+	FrequencyHz      *float64  `json:"frequency_hz,omitempty"`
 }
 
 // EVState combines the wallbox (EVSE) and vehicle (EV) use cases.
@@ -125,6 +144,7 @@ type SiteState struct {
 	GridSKI            string   `json:"grid_ski,omitempty"`
 	PVPowerW           *float64 `json:"pv_power_w,omitempty"`
 	BatteryPowerW      *float64 `json:"battery_power_w,omitempty"`
+	InverterACPowerW   *float64 `json:"inverter_ac_power_w,omitempty"`
 	GridPowerW         *float64 `json:"grid_power_w,omitempty"`
 	EVChargingPowerW   *float64 `json:"ev_charging_power_w,omitempty"`
 	HeatPumpPowerW     *float64 `json:"heat_pump_power_w,omitempty"`
@@ -159,6 +179,7 @@ func (st *State) UpdateDevice(ski string, mutate func(*DeviceData)) {
 	d.MPC = clonePtr(d.MPC)
 	d.Battery = clonePtr(d.Battery)
 	d.Inverter = clonePtr(d.Inverter)
+	d.InverterAC = clonePtr(d.InverterAC)
 	d.Grid = clonePtr(d.Grid)
 	d.EV = clonePtr(d.EV)
 	d.Control = clonePtr(d.Control)
@@ -179,7 +200,7 @@ func clonePtr[T any](p *T) *T {
 // RecomputeSite derives the whole-home aggregates from all devices.
 func (st *State) RecomputeSite() {
 	site := SiteState{LeadingInverterSKI: st.PrimarySKI}
-	var pv, bat, ev, hp *float64
+	var pv, bat, ev, hp, ac *float64
 	add := func(acc **float64, v *float64) {
 		if v == nil {
 			return
@@ -216,6 +237,9 @@ func (st *State) RecomputeSite() {
 		if d.Battery != nil {
 			add(&bat, d.Battery.PowerW)
 		}
+		if d.InverterAC != nil {
+			add(&ac, d.InverterAC.PowerW)
+		}
 		if d.EV != nil {
 			add(&ev, d.EV.PowerW)
 		}
@@ -229,5 +253,6 @@ func (st *State) RecomputeSite() {
 		}
 	}
 	site.PVPowerW, site.BatteryPowerW, site.EVChargingPowerW, site.HeatPumpPowerW = pv, bat, ev, hp
+	site.InverterACPowerW = ac
 	st.Site = site
 }
