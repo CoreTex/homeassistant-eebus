@@ -7,6 +7,7 @@ import (
 	"github.com/CoreTex/homeassistant-eebus/eebus_bridge/internal/store"
 
 	ucapi "github.com/enbility/eebus-go/usecases/api"
+	spineapi "github.com/enbility/spine-go/api"
 )
 
 // Classification inputs taken from real devices (bridge debug log).
@@ -243,5 +244,15 @@ func TestRecomputeSite(t *testing.T) {
 	s.UpdateDevice(skiWallbox2, func(d *store.DeviceData) { d.InverterAC = &store.InverterACState{PowerW: &ac2} })
 	if s.Site.InverterACPowerW == nil || *s.Site.InverterACPowerW != 1500 {
 		t.Errorf("inverter AC sum = %v, want 1500", s.Site.InverterACPowerW)
+	}
+}
+
+func TestHandleEventIgnoresIrrelevantEvents(t *testing.T) {
+	m := newTestManager(t, config.Config{})
+	// no device / not an "add": must not panic or touch the store
+	m.HandleEvent(spineapi.EventPayload{})
+	m.HandleEvent(spineapi.EventPayload{EventType: spineapi.EventTypeDataChange, ChangeType: spineapi.ElementChangeAdd})
+	if len(m.store.Snapshot().Devices) != 0 {
+		t.Error("irrelevant events must not create devices")
 	}
 }

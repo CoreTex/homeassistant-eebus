@@ -409,6 +409,16 @@ REMOTE_SENSORS: tuple[EebusSensorEntityDescription, ...] = (
         value_fn=_ev_state,
         available_fn=lambda d: d.get("ev") is not None,
     ),
+    # How the bridge classifies the device (diagnostics)
+    EebusSensorEntityDescription(
+        key="remote_category",
+        translation_key="remote_category",
+        device_class=SensorDeviceClass.ENUM,
+        options=["inverter", "wallbox", "heat_pump", "grid_meter", "control_box", "generic"],
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda d: d.get("category") or None,
+        available_fn=lambda d: bool(d.get("category")),
+    ),
     # Limits the bridge applies to this device
     _remote("lpc_applied", "control", "lpc_applied_w", device_class=_P, unit=_W),
     _remote("lpp_applied", "control", "lpp_applied_w", device_class=_P, unit=_W),
@@ -437,6 +447,17 @@ class EebusRemoteSensor(EebusRemoteEntity, SensorEntity):
     @property
     def available(self) -> bool:
         return super().available and self.native_value is not None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        if self.entity_description.key != "remote_category":
+            return None
+        dev = self.device_data
+        return {
+            "device_type": dev.get("device_type"),
+            "entity_types": dev.get("entity_types") or [],
+            "use_cases": dev.get("use_cases") or [],
+        }
 
 
 class EebusSurplusSensor(EebusEntity, SensorEntity):

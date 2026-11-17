@@ -161,7 +161,18 @@
       "remote_inverter_energy_consumed": { "name": "Wechselrichter Energie bezogen" },
       "remote_inverter_yield_total": { "name": "Wechselrichter Ertrag gesamt" },
       "remote_inverter_frequency": { "name": "Wechselrichter-Frequenz" },
-      "site_inverter_ac_power": { "name": "Wechselrichter AC-Leistung gesamt" }
+      "site_inverter_ac_power": { "name": "Wechselrichter AC-Leistung gesamt" },
+      "remote_category": {
+        "name": "Gerätetyp",
+        "state": {
+          "inverter": "Wechselrichter",
+          "wallbox": "Wallbox",
+          "heat_pump": "Wärmepumpe",
+          "grid_meter": "Netzzähler",
+          "control_box": "Steuerbox",
+          "generic": "Sonstiges"
+        }
+      }
     },
     "binary_sensor": {
       "consumption_limit_active": { "name": "Verbrauchslimit aktiv" },
@@ -208,6 +219,12 @@
           "manual": "Manuelle Leistung"
         }
       }
+    }
+  },
+  "issues": {
+    "eg_control_disabled": {
+      "title": "EEBUS-Geräte nicht steuerbar",
+      "description": "Die EEBUS Bridge hat {devices} gefunden. Diese Geräte lassen sich nur steuern, wenn die Bridge als Energy Guard arbeitet. Aktiviere `enable_eg_control` in der Konfiguration des EEBUS-Bridge-Add-ons und starte das Add-on neu. Danach erscheinen Lademodus, Limits und Failsafe-Einstellungen am Gerät."
     }
   }
 }

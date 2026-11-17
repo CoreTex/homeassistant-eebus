@@ -140,6 +140,9 @@ func NewManager(cfg config.Config, st *store.Store, version string) (*Manager, e
 	}
 
 	m.setupUseCases()
+	if err := m.svc.LocalDevice().Events().Subscribe(m); err != nil {
+		return nil, fmt.Errorf("subscribing to device events: %w", err)
+	}
 	m.publishServiceInfo()
 
 	return m, nil
@@ -263,6 +266,14 @@ func (m *Manager) publishServiceInfo() {
 	info := store.ServiceInfo{
 		Version:    m.version,
 		DeviceName: fmt.Sprintf("%s %s", m.cfg.DeviceBrand, m.cfg.DeviceModel),
+		Features: store.Features{
+			LPC:           m.cfg.EnableLPC,
+			LPP:           m.cfg.EnableLPP,
+			EGControl:     m.cfg.EnableEGControl,
+			EV:            m.cfg.EnableEV,
+			MGCP:          m.cfg.EnableMGCP,
+			DistributeLPC: m.cfg.DistributeLPC,
+		},
 	}
 	if local := m.svc.LocalService(); local != nil {
 		info.SKI = local.SKI()

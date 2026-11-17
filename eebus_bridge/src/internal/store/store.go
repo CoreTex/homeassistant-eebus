@@ -16,6 +16,19 @@ type ServiceInfo struct {
 	DeviceName  string `json:"device_name"`
 	Fingerprint string `json:"fingerprint"`
 	QRCode      string `json:"qr_code"`
+	// Features reports which add-on options are enabled, so the integration
+	// can explain missing controls (e.g. enable_eg_control is off).
+	Features Features `json:"features"`
+}
+
+// Features mirrors the enable_* options of the add-on.
+type Features struct {
+	LPC           bool `json:"lpc"`
+	LPP           bool `json:"lpp"`
+	EGControl     bool `json:"eg_control"`
+	EV            bool `json:"ev"`
+	MGCP          bool `json:"mgcp"`
+	DistributeLPC bool `json:"distribute_lpc"`
 }
 
 // Connection is a remote EEBUS service we know about.

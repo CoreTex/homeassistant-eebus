@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.1-dev
+
+- Devices are classified right after SPINE discovery, independent of the
+  enabled use cases (a §14a-only wallbox was not recognised while
+  `enable_eg_control` was off).
+- The state reports the enabled add-on features (`service.features`); the
+  integration raises a repair issue when wallboxes/heat pumps are found but
+  `enable_eg_control` is off, and shows a per-device *Device type* sensor.
+
 ## 0.3.0-dev
 
 - **Device classes:** remotes are classified as inverter, wallbox, heat pump,

@@ -30,6 +30,7 @@ from .const import (
 )
 from .coordinator import EebusCoordinator
 from .remote import connections
+from .repairs import async_track_issues
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -65,6 +66,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     coordinator.charge_controller.async_start()
+    async_track_issues(coordinator)
     entry.async_on_unload(coordinator.charge_controller.async_stop)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     _async_register_services(hass)

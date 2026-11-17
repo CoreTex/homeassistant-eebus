@@ -279,3 +279,45 @@ async def test_mode_restored_after_restart(hass: HomeAssistant) -> None:
         assert mode == "select.kathrein_ac40_4ff37d1e_charge_mode", mode
         assert hass.states.get(mode).state == "min_pv"
         assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_eg_control_disabled_repair(hass: HomeAssistant) -> None:
+    """KATHREIN without enable_eg_control: classified, repair issue, no charge mode."""
+    from homeassistant.helpers import issue_registry as ir
+
+    state = copy.deepcopy(STATE)
+    state["service"]["features"] = {"eg_control": False, "ev": True}
+    # without Energy Guard the bridge only knows the device from discovery
+    state["devices"][KATHREIN] = {
+        "category": "wallbox", "device_type": "ChargingStation", "entity_types": ["EVSE"],
+    }
+    entry = MockConfigEntry(domain="eebus", unique_id=BRIDGE,
+                            data={"host": "127.0.0.1", "port": 7050, "token": None})
+    entry.add_to_hass(hass)
+    with (
+        patch("custom_components.eebus.api.EebusApiClient.get_state",
+              AsyncMock(side_effect=lambda: copy.deepcopy(state))),
+        patch("custom_components.eebus.api.EebusApiClient.listen", _never),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        ent = er.async_get(hass)
+        issues = ir.async_get(hass)
+        issue_id = f"eg_control_disabled_{entry.entry_id}"
+
+        category = ent.async_get_entity_id("sensor", "eebus", f"{BRIDGE}_{KATHREIN}_remote_category")
+        assert hass.states.get(category).state == "wallbox"
+        assert hass.states.get(category).attributes["device_type"] == "ChargingStation"
+        assert ent.async_get_entity_id("select", "eebus", f"{BRIDGE}_{KATHREIN}_charge_mode") is None
+        issue = issues.async_get_issue("eebus", issue_id)
+        assert issue is not None
+        assert "KATHREIN AC40" in issue.translation_placeholders["devices"]
+
+        # user enables enable_eg_control -> bridge reports LPC support
+        state["service"]["features"]["eg_control"] = True
+        state["devices"][KATHREIN] = copy.deepcopy(STATE["devices"][KATHREIN])
+        await hass.data["eebus"][entry.entry_id].async_refresh()
+        await hass.async_block_till_done()
+        assert issues.async_get_issue("eebus", issue_id) is None
+        assert ent.async_get_entity_id("select", "eebus", f"{BRIDGE}_{KATHREIN}_charge_mode")
+        assert await hass.config_entries.async_unload(entry.entry_id)

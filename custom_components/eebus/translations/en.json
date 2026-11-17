@@ -143,7 +143,18 @@
       "remote_inverter_energy_consumed": { "name": "Inverter energy consumed" },
       "remote_inverter_yield_total": { "name": "Inverter yield total" },
       "remote_inverter_frequency": { "name": "Inverter frequency" },
-      "site_inverter_ac_power": { "name": "Total inverter AC power" }
+      "site_inverter_ac_power": { "name": "Total inverter AC power" },
+      "remote_category": {
+        "name": "Device type",
+        "state": {
+          "inverter": "Inverter",
+          "wallbox": "Wallbox",
+          "heat_pump": "Heat pump",
+          "grid_meter": "Grid meter",
+          "control_box": "Control box",
+          "generic": "Other"
+        }
+      }
     },
     "binary_sensor": {
       "consumption_limit_active": { "name": "Consumption limit active" },
@@ -208,6 +219,12 @@
           "control_interval_s": "Control interval"
         }
       }
+    }
+  },
+  "issues": {
+    "eg_control_disabled": {
+      "title": "EEBUS devices cannot be controlled",
+      "description": "The EEBUS Bridge found {devices}, which can only be controlled when the bridge acts as Energy Guard. Enable `enable_eg_control` in the EEBUS Bridge add-on configuration and restart the add-on. Afterwards charge mode, limits and failsafe settings appear on the device."
     }
   }
 }
