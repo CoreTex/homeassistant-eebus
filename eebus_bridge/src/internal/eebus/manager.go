@@ -43,10 +43,15 @@ type Manager struct {
 
 	mu          sync.Mutex
 	localEntity spineapi.EntityLocalInterface
-	// egEntity is the remote inverter entity we (as Energy Guard) write limits
-	// to. It is discovered when the inverter announces EG-LPC/LPP support.
-	egEntity spineapi.EntityRemoteInterface
-	conns    map[string]*store.Connection
+	// egEntities holds, per limit kind, the remote entity of every device that
+	// accepts limits from us (Energy Guard role), keyed by SKI.
+	egEntities map[LimitKind]map[string]spineapi.EntityRemoteInterface
+	// evEntities holds the EV entity of each wallbox while a vehicle is
+	// connected, keyed by wallbox SKI.
+	evEntities map[string]spineapi.EntityRemoteInterface
+	// distMu serialises the §14a distribution.
+	distMu sync.Mutex
+	conns  map[string]*store.Connection
 
 	// primarySKI is the remote whose measurements are mirrored into the
 	// top-level mpc/battery/inverter blocks (see isPrimary).
@@ -64,6 +69,14 @@ type Manager struct {
 	mpc   ucapi.MaMPCInterface
 	vabd  ucapi.CemVABDInterface
 	vapd  ucapi.CemVAPDInterface
+	mgcp  ucapi.MaMGCPInterface
+
+	// wallbox / vehicle use cases
+	evsecc ucapi.CemEVSECCInterface
+	evcc   ucapi.CemEVCCInterface
+	evcem  ucapi.CemEVCEMInterface
+	evsoc  ucapi.CemEVSOCInterface
+	opev   ucapi.CemOPEVInterface
 }
 
 // NewManager builds and sets up the EEBUS service but does not start it.
@@ -77,6 +90,11 @@ func NewManager(cfg config.Config, st *store.Store, version string) (*Manager, e
 
 		primarySKI:    cfg.InverterSKI,
 		primaryWarned: make(map[string]bool),
+		egEntities: map[LimitKind]map[string]spineapi.EntityRemoteInterface{
+			KindLPC: {},
+			KindLPP: {},
+		},
+		evEntities: make(map[string]spineapi.EntityRemoteInterface),
 	}
 
 	certificate, err := m.loadOrCreateCertificate()
@@ -263,7 +281,12 @@ func (m *Manager) syncConnections() {
 	list := make([]store.Connection, 0, len(m.conns))
 	anyConnected := false
 	primary := m.primarySKI
-	egTarget := entitySKI(m.egEntity)
+	m.mu.Unlock()
+	egTarget := m.leadingEGSKI(KindLPC)
+	if egTarget == "" {
+		egTarget = m.leadingEGSKI(KindLPP)
+	}
+	m.mu.Lock()
 	for _, c := range m.conns {
 		c.Primary = c.SKI == primary
 		c.EnergyGuardTarget = c.SKI == egTarget
@@ -278,6 +301,7 @@ func (m *Manager) syncConnections() {
 		s.Connections = list
 		s.Connected = anyConnected
 		s.PrimarySKI = primary
+		s.RecomputeSite()
 	})
 }
 

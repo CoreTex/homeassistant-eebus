@@ -53,12 +53,53 @@ BINARY_SENSORS: tuple[EebusBinarySensorEntityDescription, ...] = (
         value_fn=lambda d: bool(d.get("connected")),
     ),
     EebusBinarySensorEntityDescription(
+        key="lpc_distribution_active",
+        translation_key="lpc_distribution_active",
+        device_class=BinarySensorDeviceClass.RUNNING,
+        value_fn=lambda d: bool(_get(d, "distribution", "active")),
+        available_fn=lambda d: bool(_get(d, "distribution", "enabled")),
+    ),
+    EebusBinarySensorEntityDescription(
         key="lpc_heartbeat",
         translation_key="lpc_heartbeat",
         device_class=BinarySensorDeviceClass.CONNECTIVITY,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda d: bool(_get(d, "lpc", "heartbeat_ok")),
         available_fn=lambda d: bool(_get(d, "lpc", "supported")),
+    ),
+)
+
+
+def _remote_factory(coord: EebusCoordinator, ski: str, dev: dict[str, Any]) -> list:
+    entities: list = [EebusRemoteConnectedSensor(coord, ski)]
+    for description in REMOTE_BINARY_SENSORS:
+        if description.available_fn(dev):
+            entities.append(EebusRemoteBinarySensor(coord, ski, description))
+    return entities
+
+
+# Per-device binary sensors, created by capability.
+REMOTE_BINARY_SENSORS: tuple[EebusBinarySensorEntityDescription, ...] = (
+    EebusBinarySensorEntityDescription(
+        key="ev_plugged",
+        translation_key="ev_plugged",
+        device_class=BinarySensorDeviceClass.PLUG,
+        value_fn=lambda d: bool(_get(d, "ev", "connected")),
+        available_fn=lambda d: bool(_get(d, "ev", "charge_state")) or "evcc" in (d.get("use_cases") or []),
+    ),
+    EebusBinarySensorEntityDescription(
+        key="ev_sleep",
+        translation_key="ev_sleep",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda d: bool(_get(d, "ev", "sleep_mode")),
+        available_fn=lambda d: _get(d, "ev", "sleep_mode") is not None,
+    ),
+    EebusBinarySensorEntityDescription(
+        key="lpc_limited",
+        translation_key="lpc_limited",
+        device_class=BinarySensorDeviceClass.RUNNING,
+        value_fn=lambda d: _get(d, "control", "lpc_applied_w") is not None,
+        available_fn=lambda d: bool(_get(d, "control", "lpc_supported")),
     ),
 )
 
@@ -77,7 +118,7 @@ async def async_setup_entry(
     async_track_remotes(
         coordinator,
         async_add_entities,
-        lambda coord, ski: [EebusRemoteConnectedSensor(coord, ski)],
+        _remote_factory,
     )
 
 
@@ -128,3 +169,26 @@ class EebusRemoteConnectedSensor(EebusRemoteEntity, BinarySensorEntity):
             "primary": bool(conn.get("primary")),
             "energy_guard_target": bool(conn.get("energy_guard_target")),
         }
+
+
+class EebusRemoteBinarySensor(EebusRemoteEntity, BinarySensorEntity):
+    """A per-device binary sensor of a remote EEBUS device."""
+
+    entity_description: EebusBinarySensorEntityDescription
+
+    def __init__(
+        self,
+        coordinator: EebusCoordinator,
+        ski: str,
+        description: EebusBinarySensorEntityDescription,
+    ) -> None:
+        super().__init__(coordinator, ski, description.key)
+        self.entity_description = description
+
+    @property
+    def is_on(self) -> bool:
+        return self.entity_description.value_fn(self.device_data)
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.entity_description.available_fn(self.device_data)

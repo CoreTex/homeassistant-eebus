@@ -51,6 +51,18 @@
       "fields": {
         "ski": { "name": "SKI", "description": "The 40-character hexadecimal SKI of the remote device." }
       }
+    },
+    "set_device_limit": {
+      "name": "Set device limit",
+      "description": "Set and/or apply a consumption (LPC) or production (LPP) limit on one EEBUS device, e.g. dim a heat pump or wallbox. Requires enable_eg_control in the add-on.",
+      "fields": {
+        "device_id": { "name": "Device", "description": "The EEBUS device (inverter, wallbox, heat pump, ...)." },
+        "ski": { "name": "SKI", "description": "Alternatively the 40-character SKI of the device." },
+        "kind": { "name": "Kind", "description": "consumption (LPC) or production (LPP)." },
+        "value_w": { "name": "Limit", "description": "Limit in watts. Omit to keep the current value." },
+        "active": { "name": "Active", "description": "Apply (true) or remove (false) the limit. Omit to only stage the value." },
+        "duration_s": { "name": "Duration", "description": "Duration in seconds (0 = until removed)." }
+      }
     }
   },
   "entity": {
@@ -81,14 +93,60 @@
       "voltage_l2": { "name": "Voltage L2" },
       "voltage_l3": { "name": "Voltage L3" },
       "remote_power": { "name": "Power" },
-      "remote_energy_consumed": { "name": "Energy consumed" }
+      "remote_energy_consumed": { "name": "Energy consumed" },
+      "remote_energy_produced": { "name": "Energy produced" },
+      "remote_pv_power": { "name": "PV power" },
+      "remote_pv_yield_total": { "name": "PV yield total" },
+      "remote_pv_nominal_peak": { "name": "PV peak power" },
+      "remote_battery_power": { "name": "Battery power" },
+      "remote_battery_soc": { "name": "Battery state of charge" },
+      "remote_battery_energy_charged": { "name": "Battery energy charged" },
+      "remote_battery_energy_discharged": { "name": "Battery energy discharged" },
+      "remote_grid_power": { "name": "Grid power" },
+      "remote_grid_energy_feed_in": { "name": "Grid feed-in" },
+      "remote_grid_energy_consumed": { "name": "Grid consumption" },
+      "remote_grid_limitation_factor": { "name": "Feed-in limitation" },
+      "remote_grid_frequency": { "name": "Grid frequency" },
+      "ev_charging_power": { "name": "Charging power" },
+      "ev_energy_charged": { "name": "Energy charged (session)" },
+      "ev_soc": { "name": "Vehicle state of charge" },
+      "ev_applied_current": { "name": "Charging current limit" },
+      "ev_min_current": { "name": "Minimum charging current" },
+      "ev_max_current": { "name": "Maximum charging current" },
+      "ev_communication_standard": { "name": "Vehicle communication" },
+      "ev_evse_state": { "name": "Wallbox state" },
+      "ev_charge_state": {
+        "name": "Charge state",
+        "state": {
+          "unknown": "Unknown",
+          "unplugged": "Unplugged",
+          "error": "Error",
+          "paused": "Paused",
+          "active": "Charging",
+          "finished": "Finished"
+        }
+      },
+      "lpc_applied": { "name": "Consumption limit (applied)" },
+      "lpp_applied": { "name": "Production limit (applied)" },
+      "lpc_distributed": { "name": "§14a share" },
+      "site_pv_power": { "name": "Total PV power" },
+      "site_battery_power": { "name": "Total battery power" },
+      "site_grid_power": { "name": "Grid power (site)" },
+      "site_ev_charging_power": { "name": "Total charging power" },
+      "site_heat_pump_power": { "name": "Total heat pump power" },
+      "lpc_distribution_share": { "name": "§14a share per device" },
+      "pv_surplus": { "name": "PV surplus" }
     },
     "binary_sensor": {
       "consumption_limit_active": { "name": "Consumption limit active" },
       "production_limit_active": { "name": "Production limit active" },
       "connected": { "name": "EEBUS connected" },
       "lpc_heartbeat": { "name": "LPC heartbeat" },
-      "remote_connected": { "name": "Connected" }
+      "remote_connected": { "name": "Connected" },
+      "lpc_distribution_active": { "name": "§14a distribution active" },
+      "ev_plugged": { "name": "Vehicle plugged in" },
+      "ev_sleep": { "name": "Vehicle sleeping" },
+      "lpc_limited": { "name": "Consumption limited" }
     },
     "number": {
       "failsafe_consumption_power": { "name": "Failsafe consumption power" },
@@ -98,12 +156,50 @@
       "failsafe_production_power": { "name": "Failsafe production power" },
       "failsafe_production_duration": { "name": "Failsafe production duration" },
       "inverter_consumption_limit": { "name": "Inverter consumption limit" },
-      "inverter_production_limit": { "name": "Inverter production limit" }
+      "inverter_production_limit": { "name": "Inverter production limit" },
+      "lpc_target": { "name": "Consumption limit" },
+      "lpp_target": { "name": "Production limit" },
+      "lpc_failsafe_power": { "name": "Failsafe power" },
+      "lpc_failsafe_duration": { "name": "Failsafe duration" },
+      "charge_power_manual": { "name": "Charge power (manual)" }
     },
     "switch": {
       "inverter_consumption_limit_active": { "name": "Inverter consumption limit active" },
       "inverter_production_limit_active": { "name": "Inverter production limit active" },
-      "remote_trusted": { "name": "Trusted" }
+      "remote_trusted": { "name": "Trusted" },
+      "lpc_active": { "name": "Consumption limit active" },
+      "lpp_active": { "name": "Production limit active" }
+    },
+    "select": {
+      "charge_mode": {
+        "name": "Charge mode",
+        "state": {
+          "auto": "Auto (wallbox decides)",
+          "off": "Off",
+          "pv": "PV surplus only",
+          "min_pv": "Minimum + PV",
+          "fast": "Fast",
+          "manual": "Manual power"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "PV-surplus charging",
+        "description": "Settings for the wallbox charge modes. The grid power sensor must be positive when importing (enable the inversion otherwise). Leave it empty to use a grid meter connected via EEBUS (MGCP).",
+        "data": {
+          "grid_power_entity": "Grid power sensor",
+          "grid_power_inverted": "Sensor is positive when feeding in",
+          "surplus_reserve_w": "Reserve kept for the house",
+          "min_charge_power_w": "Minimum charging power",
+          "max_charge_power_w": "Maximum charging power (if the wallbox does not report one)",
+          "start_delay_s": "Start delay (PV mode)",
+          "stop_delay_s": "Stop delay (PV mode)",
+          "control_interval_s": "Control interval"
+        }
+      }
     }
   }
 }

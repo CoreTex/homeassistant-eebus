@@ -13,6 +13,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import EebusApiClient, EebusApiError
+from .charging import ChargeController
 from .const import (
     CONF_HOST,
     CONF_PORT,
@@ -23,10 +24,12 @@ from .const import (
     PLATFORMS,
     SERVICE_FORGET_DEVICE,
     SERVICE_SET_CONSUMPTION_LIMIT,
+    SERVICE_SET_DEVICE_LIMIT,
     SERVICE_SET_PRODUCTION_LIMIT,
     SERVICE_TRUST_DEVICE,
 )
 from .coordinator import EebusCoordinator
+from .remote import connections
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,13 +58,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         sw_version=(coordinator.data or {}).get("service", {}).get("version"),
     )
     coordinator.bridge_device_id = bridge_device.id
+    coordinator.charge_controller = ChargeController(hass, coordinator)
     await coordinator.async_start_websocket()
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    coordinator.charge_controller.async_start()
+    entry.async_on_unload(coordinator.charge_controller.async_stop)
+    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     _async_register_services(hass)
     return True
+
+
+async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload so the charge controller picks up new options."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -79,6 +91,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             SERVICE_SET_PRODUCTION_LIMIT,
             SERVICE_TRUST_DEVICE,
             SERVICE_FORGET_DEVICE,
+            SERVICE_SET_DEVICE_LIMIT,
         ):
             hass.services.async_remove(DOMAIN, service)
     return unload_ok
@@ -150,3 +163,51 @@ def _async_register_services(hass: HomeAssistant) -> None:
     hass.services.async_register(
         DOMAIN, SERVICE_FORGET_DEVICE, _handle_forget, schema=trust_schema
     )
+
+    device_limit_schema = vol.Schema(
+        {
+            vol.Exclusive("device_id", "target"): cv.string,
+            vol.Exclusive("ski", "target"): cv.string,
+            vol.Optional("kind", default="consumption"): vol.In(["consumption", "production"]),
+            vol.Optional("value_w"): vol.All(vol.Coerce(float), vol.Range(min=0)),
+            vol.Optional("active"): cv.boolean,
+            vol.Optional("duration_s"): vol.All(vol.Coerce(float), vol.Range(min=0)),
+        }
+    )
+
+    async def _handle_device_limit(call: ServiceCall) -> None:
+        ski = call.data.get("ski") or _ski_from_device(hass, call.data.get("device_id"))
+        if not ski:
+            raise HomeAssistantError("Pass an EEBUS device (device_id) or its SKI")
+        coords = [c for c in _coordinators(hass) if ski in connections(c.data)]
+        if not coords:
+            raise HomeAssistantError(f"No EEBUS bridge knows the device {ski}")
+        for coord in coords:
+            try:
+                await coord.client.set_device_limit(
+                    ski,
+                    production=call.data["kind"] == "production",
+                    target_w=call.data.get("value_w"),
+                    active=call.data.get("active"),
+                    duration_s=call.data.get("duration_s"),
+                )
+            except EebusApiError as err:
+                raise HomeAssistantError(str(err)) from err
+            await coord.async_request_refresh()
+
+    hass.services.async_register(
+        DOMAIN, SERVICE_SET_DEVICE_LIMIT, _handle_device_limit, schema=device_limit_schema
+    )
+
+
+def _ski_from_device(hass: HomeAssistant, device_id: str | None) -> str | None:
+    """Map a device-registry id of a remote EEBUS device to its SKI."""
+    if not device_id:
+        return None
+    device = dr.async_get(hass).async_get(device_id)
+    if device is None:
+        return None
+    for domain, identifier in device.identifiers:
+        if domain == DOMAIN and identifier.startswith("remote_"):
+            return identifier.removeprefix("remote_")
+    return None

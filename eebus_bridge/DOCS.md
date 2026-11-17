@@ -57,17 +57,60 @@ SKIs trusted at runtime (the integration's **Trusted** switch per device, the
 `/data/trusted_skis.json` and survive restarts. `eebus.forget_device` removes
 them again.
 
-### Several devices (inverter + wallboxes)
+## Device classes
 
-Every known remote shows up in Home Assistant as its own device with a
-**Connected** sensor, a **Trusted** switch, and power/energy sensors if it
-reports MPC. Set `inverter_ski` when more than one device is paired:
+The bridge is the home's energy manager (CEM). It classifies every paired
+device from its SPINE device type, entity types and announced use cases, and
+offers whatever that device supports:
 
-- Only the `inverter_ski` device feeds the bridge's top-level power, battery and
-  PV sensors. Without it, the first device that reports measurements is used.
-- Energy-Guard limits (`enable_eg_control`) are only ever written to the
-  `inverter_ski` device. Without it, the first device that offers LPC/LPP stays
-  the target, and a wallbox that pairs later never replaces it.
+| Class | Detected by | What the bridge can do |
+| --- | --- | --- |
+| **Inverter** (PV/hybrid) | device type `Inverter`, entities `Inverter`/`PVSystem`/`PVESHybrid`/`Battery…`, VAPD/VABD | MPC/PV/battery data; LPC + LPP limits (`enable_eg_control`) |
+| **Wallbox** | device type `ChargingStation`, entities `EVSE`/`EV`, EV use cases | §14a power limit via LPC; with EVSECC/EVCC/EVCEM/EVSOC/OPEV also vehicle state, charging power, SoC and charging current |
+| **Heat pump** | entities `HeatPumpAppliance`/`Compressor`/heating circuits | MPC data; §14a dimming via LPC |
+| **Grid meter** | entity `GridConnectionPointOfPremises`, MGCP | grid power (positive = import), feed-in/consumption energy, feed-in limitation |
+| **Control box** | device type `ElectricitySupplySystem`, sends LPC/LPP to us | the grid operator's limits arrive at the bridge (Controllable System) |
+
+Not available (missing in `eebus-go`): heat-pump specific use cases such as
+*Optimization of Self-Consumption by Heat Pump Compressor Flexibility*, hot
+water or room temperature control, and the inverter/battery use cases MOI, MOB
+and Control of Battery. Heat pumps can therefore be **dimmed** (LPC) and
+**monitored** (MPC), but not boosted.
+
+Real-world example: a **KATHREIN AC40** announces only `limitationOfPowerConsumption`
+(Controllable System) on one EVSE entity. It reports no measurements, but the
+bridge can limit its charging power in watts - enable `enable_eg_control`.
+
+### Leading inverter (several inverters)
+
+With more than one inverter, set `inverter_ski` to the **leading** one:
+
+- it feeds the bridge's top-level power/battery/PV sensors and the
+  bridge-level *Inverter … limit* controls (without `inverter_ski` the first
+  inverter is used; wallboxes, heat pumps and meters are never chosen);
+- every inverter keeps its own per-device sensors and limit controls;
+- the *site* sensors add up all inverters (total PV, total battery power).
+
+### Limits per device
+
+With `enable_eg_control`, every device that accepts limits gets a
+*Consumption limit* / *Production limit* number (staged value) and a matching
+switch (apply / remove). The bridge always writes the **lower** of the user
+limit and an active §14a share.
+
+**Failsafe:** once a device received a limit from the bridge it falls back to
+its *failsafe power* for the *failsafe duration* when the bridge's heartbeat
+stops (e.g. while the add-on restarts). For a wallbox, set the failsafe power
+to what it may draw during such an outage.
+
+### §14a distribution (`distribute_lpc`)
+
+When enabled and the grid operator's control box sends an active consumption
+limit to the bridge, the bridge shares it **equally** among the connected
+wallboxes and heat pumps: via LPC where supported, otherwise by capping the
+wallbox charging current (OPEV). Inverters are not included. The share is
+removed when the incoming limit ends. This runs inside the add-on, so it keeps
+working while Home Assistant restarts.
 
 ## Options
 
@@ -83,13 +126,16 @@ reports MPC. Set `inverter_ski` when more than one device is paired:
 | `enable_mpc` | `true` | Monitoring of Power Consumption |
 | `enable_battery` | `true` | Battery monitoring (VABD ~ MOB) |
 | `enable_inverter` | `true` | Inverter/PV monitoring (VAPD ~ MOI) |
-| `enable_eg_control` | `false` | Act as Energy Guard and send limits to the inverter |
+| `enable_eg_control` | `false` | Act as Energy Guard: send LPC/LPP limits to devices (inverters, wallboxes, heat pumps) |
+| `enable_mgcp` | `true` | Monitoring of the grid connection point (smart meter) |
+| `enable_ev` | `true` | Wallbox/vehicle use cases (EVSECC, EVCC, EVCEM, EVSOC, OPEV) |
+| `distribute_lpc` | `false` | Share an incoming §14a consumption limit among wallboxes and heat pumps |
 | `lpc_nominal_max_w` | `0` | Seed the consumption nominal maximum (W); `0` = leave unset. Relevant for §14a. |
 | `lpp_nominal_max_w` | `0` | Seed the production nominal maximum (W); `0` = leave unset. |
 | `auto_accept_trust` | `false` | Auto-trust any remote that tries to pair |
 | `auto_approve_limits` | `true` | Auto-accept incoming LPC/LPP write limits |
 | `trusted_skis` | `[]` | Pre-trusted remote SKIs (40 hex chars each) |
-| `inverter_ski` | _(empty)_ | Target SKI for Energy-Guard control / monitoring |
+| `inverter_ski` | _(empty)_ | SKI of the **leading** inverter (top-level sensors, bridge-level inverter limits) |
 
 ## API (for advanced users / the integration)
 
@@ -102,6 +148,13 @@ reports MPC. Set `inverter_ski` when more than one device is paired:
 - `POST /api/lpc/failsafe` / `POST /api/lpp/failsafe` – `{power_w?, duration_s?}`
 - `POST /api/lpc/nominal_max` / `POST /api/lpp/nominal_max` – `{value_w}`
 - `GET /api/pairing`, `POST /api/pairing/trust` `{ski}`, `POST /api/pairing/forget` `{ski}`
+- `POST /api/devices/{ski}/lpc` / `.../lpp` – `{target_w?, active?, duration_s?}` (stage and/or apply a device limit)
+- `POST /api/devices/{ski}/failsafe` – `{power_w?, duration_s?}` (device failsafe)
+- `POST /api/devices/{ski}/ev_current` – `{current_a}` (A per phase, 0 = pause) or `{release: true}`
+
+`/api/state` contains `devices` (per SKI: `category`, `use_cases`, `mpc`,
+`inverter`, `battery`, `grid`, `ev`, `control`), `site` (aggregates) and
+`distribution` (§14a share-out).
 
 If `api_token` is set, send `Authorization: Bearer <token>` (or `?token=` for the
 WebSocket).

@@ -19,6 +19,11 @@ type stubController struct {
 	lastConsW   float64
 	lastActive  bool
 	lastTrusted string
+
+	lastSKI      string
+	lastTarget   *float64
+	lastActivePt *bool
+	lastCurrent  *float64
 }
 
 func (s *stubController) maybeFail(name string) error {
@@ -65,6 +70,23 @@ func (s *stubController) SetLPPFailsafe(*float64, *float64) error {
 }
 func (s *stubController) SetLPCNominalMax(float64) error { return s.maybeFail("SetLPCNominalMax") }
 func (s *stubController) SetLPPNominalMax(float64) error { return s.maybeFail("SetLPPNominalMax") }
+
+func (s *stubController) SetDeviceConsumptionLimit(ski string, t *float64, a *bool, _ *float64) error {
+	s.lastSKI, s.lastTarget, s.lastActivePt = ski, t, a
+	return s.maybeFail("SetDeviceConsumptionLimit")
+}
+func (s *stubController) SetDeviceProductionLimit(ski string, t *float64, a *bool, _ *float64) error {
+	s.lastSKI, s.lastTarget, s.lastActivePt = ski, t, a
+	return s.maybeFail("SetDeviceProductionLimit")
+}
+func (s *stubController) SetDeviceFailsafe(ski string, _, _ *float64) error {
+	s.lastSKI = ski
+	return s.maybeFail("SetDeviceFailsafe")
+}
+func (s *stubController) SetEVCurrent(ski string, c *float64) error {
+	s.lastSKI, s.lastCurrent = ski, c
+	return s.maybeFail("SetEVCurrent")
+}
 
 func newTestServer(token string) (*httptest.Server, *stubController, *store.Store) {
 	st := store.New()
@@ -216,4 +238,47 @@ func contains(haystack []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+func TestDeviceEndpoints(t *testing.T) {
+	ts, ctrl, _ := newTestServer("")
+	defer ts.Close()
+	ski := "4ff37d1e374a006d0de80260256b82de3d745fa4"
+
+	resp := post(t, ts, "/api/devices/"+ski+"/lpc", "", `{"target_w": 4200}`)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("lpc: status %d", resp.StatusCode)
+	}
+	if ctrl.lastSKI != ski || ctrl.lastTarget == nil || *ctrl.lastTarget != 4200 || ctrl.lastActivePt != nil {
+		t.Fatalf("lpc args: ski=%s target=%v active=%v", ctrl.lastSKI, ctrl.lastTarget, ctrl.lastActivePt)
+	}
+
+	resp = post(t, ts, "/api/devices/"+ski+"/lpp", "", `{"active": true}`)
+	if resp.StatusCode != http.StatusOK || ctrl.lastActivePt == nil || !*ctrl.lastActivePt || ctrl.lastTarget != nil {
+		t.Fatalf("lpp: status %d active=%v target=%v", resp.StatusCode, ctrl.lastActivePt, ctrl.lastTarget)
+	}
+
+	resp = post(t, ts, "/api/devices/"+ski+"/ev_current", "", `{"current_a": 10}`)
+	if resp.StatusCode != http.StatusOK || ctrl.lastCurrent == nil || *ctrl.lastCurrent != 10 {
+		t.Fatalf("ev_current: status %d current=%v", resp.StatusCode, ctrl.lastCurrent)
+	}
+	resp = post(t, ts, "/api/devices/"+ski+"/ev_current", "", `{"release": true}`)
+	if resp.StatusCode != http.StatusOK || ctrl.lastCurrent != nil {
+		t.Fatalf("release: status %d current=%v", resp.StatusCode, ctrl.lastCurrent)
+	}
+	resp = post(t, ts, "/api/devices/"+ski+"/ev_current", "", `{}`)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("empty ev_current should be 400, got %d", resp.StatusCode)
+	}
+
+	resp = post(t, ts, "/api/devices/"+ski+"/failsafe", "", `{"power_w": 11000}`)
+	if resp.StatusCode != http.StatusOK || ctrl.lastSKI != ski {
+		t.Fatalf("failsafe: status %d", resp.StatusCode)
+	}
+
+	ctrl.failNext = true
+	resp = post(t, ts, "/api/devices/"+ski+"/lpc", "", `{"active": false}`)
+	if resp.StatusCode == http.StatusOK {
+		t.Fatal("controller error must not return 200")
+	}
 }

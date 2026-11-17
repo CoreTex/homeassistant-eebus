@@ -67,3 +67,46 @@ forget_device:
       example: "047f49440480912fbaa29cc6ac1d572ef7565413"
       selector:
         text:
+
+set_device_limit:
+  fields:
+    device_id:
+      required: false
+      selector:
+        device:
+          integration: eebus
+    ski:
+      required: false
+      example: "4ff37d1e374a006d0de80260256b82de3d745fa4"
+      selector:
+        text:
+    kind:
+      required: false
+      default: consumption
+      selector:
+        select:
+          options:
+            - consumption
+            - production
+    value_w:
+      required: false
+      example: 4200
+      selector:
+        number:
+          min: 0
+          max: 100000
+          step: 100
+          unit_of_measurement: W
+    active:
+      required: false
+      selector:
+        boolean:
+    duration_s:
+      required: false
+      example: 7200
+      selector:
+        number:
+          min: 0
+          max: 86400
+          step: 60
+          unit_of_measurement: s

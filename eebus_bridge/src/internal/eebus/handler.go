@@ -17,14 +17,17 @@ func (m *Manager) RemoteServiceConnected(_ eebusapi.ServiceInterface, identity s
 		c.Connected = true
 		c.Trusted = true
 	})
+	m.scheduleDistribution()
 }
 
 func (m *Manager) RemoteServiceDisconnected(_ eebusapi.ServiceInterface, identity shipapi.ServiceIdentity) {
 	m.logger.Infof("remote disconnected: %s", identity.SKI)
-	m.clearEGTargetFor(identity.SKI)
+	m.forgetEntities(identity.SKI)
 	m.upsertConn(identity.SKI, func(c *store.Connection) {
 		c.Connected = false
 	})
+	m.mirrorLeading()
+	m.scheduleDistribution()
 }
 
 func (m *Manager) VisibleRemoteMdnsServicesUpdated(_ eebusapi.ServiceInterface, entries []shipapi.RemoteMdnsService) {

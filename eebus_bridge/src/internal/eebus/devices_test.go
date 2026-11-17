@@ -8,6 +8,8 @@ import (
 
 	"github.com/CoreTex/homeassistant-eebus/eebus_bridge/internal/config"
 	"github.com/CoreTex/homeassistant-eebus/eebus_bridge/internal/store"
+
+	spineapi "github.com/enbility/spine-go/api"
 )
 
 const (
@@ -28,6 +30,8 @@ func newTestManager(t *testing.T, cfg config.Config) *Manager {
 		conns:         make(map[string]*store.Connection),
 		primarySKI:    cfg.InverterSKI,
 		primaryWarned: make(map[string]bool),
+		egEntities:    map[LimitKind]map[string]spineapi.EntityRemoteInterface{KindLPC: {}, KindLPP: {}},
+		evEntities:    make(map[string]spineapi.EntityRemoteInterface),
 	}
 }
 
@@ -109,3 +113,5 @@ func TestSyncConnectionsFlags(t *testing.T) {
 		t.Errorf("primary flag wrong: %+v", conns)
 	}
 }
+
+type spineEntity = spineapi.EntityRemoteInterface

@@ -33,7 +33,14 @@ type Config struct {
 	EnableMPC       bool `json:"enable_mpc"`        // Monitoring of Power Consumption
 	EnableBattery   bool `json:"enable_battery"`    // VABD ~ Monitoring of Battery (MOB)
 	EnableInverter  bool `json:"enable_inverter"`   // VAPD ~ Monitoring of Inverter (MOI)
-	EnableEGControl bool `json:"enable_eg_control"` // Energy Guard: send limits to the inverter
+	EnableEGControl bool `json:"enable_eg_control"` // Energy Guard: send LPC/LPP limits to devices (inverters, wallboxes, heat pumps)
+	EnableMGCP      bool `json:"enable_mgcp"`       // Monitoring of the Grid Connection Point (smart meter)
+	EnableEV        bool `json:"enable_ev"`         // Wallbox/vehicle use cases (EVSECC, EVCC, EVCEM, EVSOC, OPEV)
+
+	// DistributeLPC shares an incoming §14a consumption limit (from the grid
+	// operator's control box) among the controllable wallboxes and heat pumps.
+	// Requires enable_lpc, plus enable_eg_control and/or enable_ev.
+	DistributeLPC bool `json:"distribute_lpc"`
 
 	// Optional nominal maximum power seeds for the Controllable System, in watts.
 	// 0 means "leave unset" (the value can still be changed at runtime via the
@@ -68,6 +75,9 @@ func Default() Config {
 		EnableBattery:     true,
 		EnableInverter:    true,
 		EnableEGControl:   false,
+		EnableMGCP:        true,
+		EnableEV:          true,
+		DistributeLPC:     false,
 		LpcNominalMaxW:    0,
 		LppNominalMaxW:    0,
 		AutoAcceptTrust:   false,

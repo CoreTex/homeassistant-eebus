@@ -39,6 +39,8 @@ class EebusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._ws_task: asyncio.Task | None = None
         # Device-registry id of the bridge device, set during entry setup.
         self.bridge_device_id: str | None = None
+        # Wallbox charge modes (set during entry setup, see charging.py).
+        self.charge_controller: Any = None
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:

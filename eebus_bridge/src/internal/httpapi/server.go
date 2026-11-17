@@ -30,6 +30,12 @@ type Controller interface {
 	SetLPPFailsafe(powerW, durationS *float64) error
 	SetLPCNominalMax(valueW float64) error
 	SetLPPNominalMax(valueW float64) error
+
+	// per-device control (bridge as Energy Guard / CEM)
+	SetDeviceConsumptionLimit(ski string, targetW *float64, active *bool, durationS *float64) error
+	SetDeviceProductionLimit(ski string, targetW *float64, active *bool, durationS *float64) error
+	SetDeviceFailsafe(ski string, powerW, durationS *float64) error
+	SetEVCurrent(ski string, currentA *float64) error
 }
 
 // Server is the HTTP/WebSocket frontend.
@@ -70,6 +76,10 @@ func New(addr, token, version string, st *store.Store, ctrl Controller) *Server 
 	mux.HandleFunc("POST /api/lpp/failsafe", s.auth(s.handleFailsafe(true)))
 	mux.HandleFunc("POST /api/lpc/nominal_max", s.auth(s.handleNominalMax(false)))
 	mux.HandleFunc("POST /api/lpp/nominal_max", s.auth(s.handleNominalMax(true)))
+	mux.HandleFunc("POST /api/devices/{ski}/lpc", s.auth(s.handleDeviceLimit(false)))
+	mux.HandleFunc("POST /api/devices/{ski}/lpp", s.auth(s.handleDeviceLimit(true)))
+	mux.HandleFunc("POST /api/devices/{ski}/failsafe", s.auth(s.handleDeviceFailsafe))
+	mux.HandleFunc("POST /api/devices/{ski}/ev_current", s.auth(s.handleEVCurrent))
 	mux.HandleFunc("GET /api/pairing", s.auth(s.handlePairing))
 	mux.HandleFunc("POST /api/pairing/trust", s.auth(s.handleTrust))
 	mux.HandleFunc("POST /api/pairing/forget", s.auth(s.handleForget))
@@ -251,6 +261,60 @@ func (s *Server) handleNominalMax(production bool) http.HandlerFunc {
 		}
 		respond(w, err)
 	}
+}
+
+type deviceLimitReq struct {
+	TargetW   *float64 `json:"target_w"`
+	Active    *bool    `json:"active"`
+	DurationS *float64 `json:"duration_s"`
+}
+
+// handleDeviceLimit stages (target_w) and/or applies (active) a limit for one
+// device; omitted fields keep their value.
+func (s *Server) handleDeviceLimit(production bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req deviceLimitReq
+		if !decode(w, r, &req) {
+			return
+		}
+		ski := r.PathValue("ski")
+		var err error
+		if production {
+			err = s.ctrl.SetDeviceProductionLimit(ski, req.TargetW, req.Active, req.DurationS)
+		} else {
+			err = s.ctrl.SetDeviceConsumptionLimit(ski, req.TargetW, req.Active, req.DurationS)
+		}
+		respond(w, err)
+	}
+}
+
+func (s *Server) handleDeviceFailsafe(w http.ResponseWriter, r *http.Request) {
+	var req failsafeReq
+	if !decode(w, r, &req) {
+		return
+	}
+	respond(w, s.ctrl.SetDeviceFailsafe(r.PathValue("ski"), req.PowerW, req.DurationS))
+}
+
+type evCurrentReq struct {
+	// CurrentA is the per-phase charging current; 0 pauses charging.
+	CurrentA *float64 `json:"current_a"`
+	// Release hands control back to the wallbox (removes the bridge's limit).
+	Release bool `json:"release"`
+}
+
+func (s *Server) handleEVCurrent(w http.ResponseWriter, r *http.Request) {
+	var req evCurrentReq
+	if !decode(w, r, &req) {
+		return
+	}
+	if req.Release {
+		req.CurrentA = nil
+	} else if req.CurrentA == nil {
+		writeError(w, http.StatusBadRequest, "current_a or release is required")
+		return
+	}
+	respond(w, s.ctrl.SetEVCurrent(r.PathValue("ski"), req.CurrentA))
 }
 
 type skiReq struct {

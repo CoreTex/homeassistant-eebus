@@ -7,12 +7,18 @@ import (
 
 	eebusapi "github.com/enbility/eebus-go/api"
 	ucapi "github.com/enbility/eebus-go/usecases/api"
+	evccuc "github.com/enbility/eebus-go/usecases/cem/evcc"
+	evcemuc "github.com/enbility/eebus-go/usecases/cem/evcem"
+	evseccuc "github.com/enbility/eebus-go/usecases/cem/evsecc"
+	evsocuc "github.com/enbility/eebus-go/usecases/cem/evsoc"
+	opevuc "github.com/enbility/eebus-go/usecases/cem/opev"
 	vabduc "github.com/enbility/eebus-go/usecases/cem/vabd"
 	vapduc "github.com/enbility/eebus-go/usecases/cem/vapd"
 	cslpc "github.com/enbility/eebus-go/usecases/cs/lpc"
 	cslpp "github.com/enbility/eebus-go/usecases/cs/lpp"
 	eglpc "github.com/enbility/eebus-go/usecases/eg/lpc"
 	eglpp "github.com/enbility/eebus-go/usecases/eg/lpp"
+	mgcpuc "github.com/enbility/eebus-go/usecases/ma/mgcp"
 	mampc "github.com/enbility/eebus-go/usecases/ma/mpc"
 	spineapi "github.com/enbility/spine-go/api"
 )
@@ -37,6 +43,27 @@ func (m *Manager) setupUseCases() {
 		m.vapd = vapduc.NewVAPD(le, m.onVAPD)
 		m.svc.AddUseCase(m.vapd)
 		m.store.Update(func(s *store.State) { s.Inverter.Supported = true })
+	}
+
+	if m.cfg.EnableMGCP {
+		m.mgcp = mgcpuc.NewMGCP(le, m.onMGCP)
+		m.svc.AddUseCase(m.mgcp)
+	}
+	if m.cfg.EnableEV {
+		// Wallbox + vehicle: state, measurements, SoC and charging-current
+		// control (OPEV). OSCEV/CEVC are intentionally not announced: without
+		// ISO 15118-20 vehicles they add nothing and EVSEs may change their
+		// behaviour when a CEM claims to support them.
+		m.evsecc = evseccuc.NewEVSECC(le, m.onEVSECC)
+		m.svc.AddUseCase(m.evsecc)
+		m.evcc = evccuc.NewEVCC(m.svc, le, m.onEVCC)
+		m.svc.AddUseCase(m.evcc)
+		m.evcem = evcemuc.NewEVCEM(m.svc, le, m.onEVCEM)
+		m.svc.AddUseCase(m.evcem)
+		m.evsoc = evsocuc.NewEVSOC(le, m.onEVSOC)
+		m.svc.AddUseCase(m.evsoc)
+		m.opev = opevuc.NewOPEV(le, m.onOPEV)
+		m.svc.AddUseCase(m.opev)
 	}
 
 	if m.cfg.EnableLPC {
@@ -74,7 +101,14 @@ func (m *Manager) setupUseCases() {
 
 // --- Controllable System: LPC (receive consumption limits) ---
 
-func (m *Manager) onCsLPC(_ string, _ spineapi.DeviceRemoteInterface, _ spineapi.EntityRemoteInterface, event eebusapi.EventType) {
+func (m *Manager) onCsLPC(_ string, device spineapi.DeviceRemoteInterface, _ spineapi.EntityRemoteInterface, event eebusapi.EventType) {
+	// Support/limit events come from the remote Energy Guard (control box,
+	// grid operator gateway) that limits us. Heartbeat events are not used for
+	// this: cs-lpc watches the heartbeat of every device with a diagnosis
+	// server (inverters and wallboxes too).
+	if event == cslpc.UseCaseSupportUpdate || event == cslpc.DataUpdateLimit {
+		m.noteDevice(device, ucLPCSource)
+	}
 	switch event {
 	case cslpc.LimitWriteApprovalRequired:
 		if m.cfg.AutoApproveLimits {
@@ -115,11 +149,15 @@ func (m *Manager) refreshLPC() {
 	}
 	st.HeartbeatOK = m.csLPC.IsHeartbeatWithinDuration()
 	m.store.Update(func(s *store.State) { s.LPC = st })
+	m.scheduleDistribution()
 }
 
 // --- Controllable System: LPP (receive production limits) ---
 
-func (m *Manager) onCsLPP(_ string, _ spineapi.DeviceRemoteInterface, _ spineapi.EntityRemoteInterface, event eebusapi.EventType) {
+func (m *Manager) onCsLPP(_ string, device spineapi.DeviceRemoteInterface, _ spineapi.EntityRemoteInterface, event eebusapi.EventType) {
+	if event == cslpp.UseCaseSupportUpdate || event == cslpp.DataUpdateLimit {
+		m.noteDevice(device, ucLPPSource)
+	}
 	switch event {
 	case cslpp.LimitWriteApprovalRequired:
 		if m.cfg.AutoApproveLimits {
@@ -173,6 +211,7 @@ func (m *Manager) onMPC(_ string, device spineapi.DeviceRemoteInterface, entity 
 	if m.mpc == nil || device == nil {
 		return
 	}
+	m.noteDevice(device, ucMPC)
 	apply := func(dst *store.MPCState) {
 		dst.Supported = true
 		switch event {
@@ -227,6 +266,7 @@ func (m *Manager) onVABD(_ string, device spineapi.DeviceRemoteInterface, entity
 	if m.vabd == nil || device == nil {
 		return
 	}
+	m.noteDevice(device, ucVABD)
 	apply := func(dst *store.BatteryState) {
 		dst.Supported = true
 		switch event {
@@ -269,6 +309,7 @@ func (m *Manager) onVAPD(_ string, device spineapi.DeviceRemoteInterface, entity
 	if m.vapd == nil || device == nil {
 		return
 	}
+	m.noteDevice(device, ucVAPD)
 	apply := func(dst *store.InverterState) {
 		dst.Supported = true
 		switch event {

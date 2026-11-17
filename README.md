@@ -74,49 +74,104 @@ See [`eebus_bridge/DOCS.md`](eebus_bridge/DOCS.md) for all options and the
    your **Home Assistant host IP** and the `api_port` (default `7050`); add the
    `api_token` if you set one.
 
-## Using it in automations
+## Operating concept
 
-The core "hold the limit" feature surfaces as:
+**One HA device per EEBUS device.** The bridge is the hub; every inverter,
+wallbox, heat pump or meter it knows becomes its own device underneath it, with
+entities created *by capability* - a device only gets the entities for data it
+actually reports (see the device classes in the add-on docs).
 
-- `binary_sensor.eebus_bridge_consumption_limit_active` – on while a limit applies
-- `sensor.eebus_bridge_consumption_limit` – the limit value in watts
+| Level | Entities |
+| --- | --- |
+| **Bridge** | received §14a/LPP limits, leading-inverter values, **site** totals (PV, battery, grid, charging, heat pumps), **PV surplus**, §14a distribution |
+| **Every device** | *Connected*, *Trusted* (pair / forget) |
+| **Inverter** | power, energy, PV, battery; *Consumption/Production limit* + switches |
+| **Wallbox** | **Charge mode**, *Charge power (manual)*, limit, failsafe; with vehicle data: plugged in, charge state, charging power, energy, SoC, current |
+| **Heat pump** | power, energy; *Consumption limit* (§14a dimming) + failsafe |
+| **Grid meter** | grid power, feed-in/consumption energy, feed-in limitation |
 
-Example: shed a load while a consumption limit is active.
+**Responsibilities are split on purpose:** safety-relevant limits (§14a share,
+failsafe) are enforced by the add-on itself, so they keep working while Home
+Assistant restarts. Comfort logic (charge modes, PV surplus) runs in Home
+Assistant, where any grid sensor can be used.
+
+### Charge modes (per wallbox)
+
+| Mode | Behaviour |
+| --- | --- |
+| `auto` | default - the bridge does not intervene (wallbox / §14a only) |
+| `off` | do not charge |
+| `pv` | PV surplus only; starts after the *start delay* once the surplus reaches the minimum power, rides through dips at minimum power for the *stop delay* |
+| `min_pv` | always at minimum power, more when there is surplus |
+| `fast` | full power |
+| `manual` | fixed power from *Charge power (manual)* |
+
+Surplus = wallbox draw − grid power − reserve (grid power positive = import).
+Configure the grid sensor under **Settings → Devices & Services → EEBUS →
+Configure**; without one, a grid meter connected via EEBUS is used. Wallboxes
+that report the vehicle are controlled by charging current (OPEV), §14a-only
+wallboxes such as the KATHREIN AC40 by a power limit (requires
+`enable_eg_control` in the add-on). Several wallboxes in a PV mode share the
+surplus equally.
+
+## Automations
+
+**Cheap night charging, PV during the day** (dynamic tariff or fixed times):
 
 ```yaml
 automation:
-  - alias: Curtail wallbox during EEBUS consumption limit
+  - alias: Wallbox fast at night
+    trigger:
+      - platform: time
+        at: "23:00:00"
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.kathrein_ac40_4ff37d1e_charge_mode
+        data:
+          option: fast
+  - alias: Wallbox PV during the day
+    trigger:
+      - platform: time
+        at: "06:00:00"
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.kathrein_ac40_4ff37d1e_charge_mode
+        data:
+          option: pv
+```
+
+**Dim the heat pump for two hours** (e.g. during a price peak):
+
+```yaml
+- service: eebus.set_device_limit
+  data:
+    device_id: <your heat pump device>
+    value_w: 4200
+    active: true
+    duration_s: 7200
+```
+
+**Notify when the grid operator limits the home (§14a):**
+
+```yaml
+automation:
+  - alias: §14a limit active
     trigger:
       - platform: state
         entity_id: binary_sensor.eebus_bridge_consumption_limit_active
         to: "on"
     action:
-      - service: number.set_value
-        target:
-          entity_id: number.wallbox_charging_limit
+      - service: notify.notify
         data:
-          value: "{{ states('sensor.eebus_bridge_consumption_limit') | float(0) }}"
+          message: >-
+            Grid operator limit: {{ states('sensor.eebus_bridge_consumption_limit') }} W
 ```
 
-Services: `eebus.set_consumption_limit`, `eebus.set_production_limit`,
-`eebus.trust_device`, `eebus.forget_device`.
-
-Every remote EEBUS device the bridge knows (inverter, wallboxes, ...) appears as
-its own device with a **Connected** sensor and a **Trusted** switch. Turn the
-switch on to pair it. With more than one device, set `inverter_ski` in the
-add-on (see the add-on docs).
-
-## Entities (overview)
-
-- **Sensors:** consumption/production limit (+ duration, nominal max), active
-  power, per-phase power/current/voltage, energy consumed/produced, frequency,
-  inverter power/PV yield/nominal peak, battery power/SoC/energy.
-- **Binary sensors:** consumption/production limit active, EEBUS connected, LPC
-  heartbeat.
-- **Numbers:** failsafe consumption/production power & duration, nominal max,
-  and (when Energy-Guard control is enabled) inverter consumption/production
-  limits.
-- **Switches:** activate/deactivate the Energy-Guard inverter limits.
+Services: `eebus.set_consumption_limit`, `eebus.set_production_limit` (leading
+inverter), `eebus.set_device_limit` (any device), `eebus.trust_device`,
+`eebus.forget_device`.
 
 ## Development
 
@@ -132,7 +187,9 @@ EEBUS_DATA_DIR=/tmp/eebus ./...   # see DOCS.md for stand-alone run
 Check the integration:
 
 ```bash
-python -m py_compile custom_components/eebus/*.py
+python -m ruff check --config ruff.toml custom_components
+pip install --prefer-binary -r tests/requirements.txt
+python -m pytest -q -o asyncio_mode=auto tests
 ```
 
 ## License

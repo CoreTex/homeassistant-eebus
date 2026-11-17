@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.0-dev
+
+- **Device classes:** remotes are classified as inverter, wallbox, heat pump,
+  grid meter or control box (from SPINE device type, entity types and use
+  cases) and expose their capabilities (`devices.<ski>.category/use_cases`).
+- **Wallboxes:** EVSECC, EVCC, EVCEM, EVSOC and OPEV (vehicle state, charging
+  power/energy, SoC, current limits, charging current control). §14a-only
+  wallboxes (e.g. KATHREIN AC40) are controlled via LPC.
+- **Grid meter:** MGCP (grid power, feed-in/consumption energy, limitation
+  factor). New option `enable_mgcp`, `enable_ev`.
+- **Energy Guard per device:** LPC/LPP limits and failsafe values for every
+  device that accepts them (`/api/devices/{ski}/lpc|lpp|failsafe`). The
+  bridge-level inverter controls now act on the leading inverter
+  (`inverter_ski`, else the first inverter - never a wallbox).
+- **§14a distribution** (`distribute_lpc`, opt-in): an incoming consumption
+  limit is shared equally among the connected wallboxes and heat pumps.
+- **Site aggregates:** total PV, battery, grid, charging and heat-pump power.
+
 ## 0.2.0-dev
 
 - Multiple paired devices: measurements are kept per device (`devices` in

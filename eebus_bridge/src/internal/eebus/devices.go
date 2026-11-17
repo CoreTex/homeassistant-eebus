@@ -16,17 +16,19 @@ const trustFileName = "trusted_skis.json"
 // --- primary device (mirrored into the top-level measurement blocks) ---
 
 // isPrimary reports whether measurements from ski feed the top-level
-// mpc/battery/inverter blocks. With inverter_ski configured only that device is
-// primary. Without it, the first device that reports measurements is chosen
-// and kept for the lifetime of the process; data from other devices is still
-// available per device under State.Devices.
+// mpc/battery/inverter blocks, i.e. whether ski is the leading inverter. With
+// inverter_ski configured only that device leads. Without it, the first
+// eligible device (inverter or unclassified, never a wallbox/heat pump/meter)
+// that reports measurements is chosen; data from all devices stays available
+// per device under State.Devices.
 func (m *Manager) isPrimary(ski string) bool {
 	if ski == "" {
 		return false
 	}
+	eligible := primaryEligible(m.categoryOf(ski))
 	m.mu.Lock()
 	chosen := false
-	if m.primarySKI == "" {
+	if m.primarySKI == "" && eligible {
 		m.primarySKI = ski
 		chosen = true
 	}
@@ -42,63 +44,20 @@ func (m *Manager) isPrimary(ski string) bool {
 		m.logger.Infof("using %s as primary device for mpc/battery/inverter data (set inverter_ski to pin it)", ski)
 		m.syncConnections()
 	}
-	if warn {
-		m.logger.Infof("device %s reports measurements; kept separate from primary device %s", ski, current)
+	if warn && current != "" {
+		m.logger.Infof("device %s reports measurements; kept separate from leading inverter %s", ski, current)
 	}
 	return primary
 }
 
-// --- Energy Guard target (the device inverter_control limits are written to) ---
-
-// acceptEGTarget decides whether entity may become the Energy-Guard target.
-// With inverter_ski configured only that device qualifies. Without it the first
-// device announcing LPC/LPP support wins; another device (e.g. a wallbox that
-// is itself an LPC Controllable System) never silently replaces it.
-func (m *Manager) acceptEGTarget(entity spineapi.EntityRemoteInterface) bool {
-	ski := entitySKI(entity)
-	if ski == "" {
-		return false
-	}
-	if m.cfg.InverterSKI != "" {
-		if ski != m.cfg.InverterSKI {
-			m.logger.Infof("ignoring Energy-Guard candidate %s: inverter_ski is %s", ski, m.cfg.InverterSKI)
-			return false
-		}
-		return true
-	}
+// forgetEntities drops the SPINE entities of a disconnected device; they are
+// re-discovered (fresh objects) on reconnect, where limits are re-applied.
+func (m *Manager) forgetEntities(ski string) {
 	m.mu.Lock()
-	current := entitySKI(m.egEntity)
-	m.mu.Unlock()
-	if current != "" && current != ski {
-		m.logger.Infof("ignoring Energy-Guard candidate %s: already controlling %s (set inverter_ski to choose)", ski, current)
-		return false
+	for _, ents := range m.egEntities {
+		delete(ents, ski)
 	}
-	return true
-}
-
-// setEGTarget stores entity as the Energy-Guard target.
-func (m *Manager) setEGTarget(entity spineapi.EntityRemoteInterface) {
-	m.mu.Lock()
-	m.egEntity = entity
-	m.mu.Unlock()
-	m.syncConnections()
-}
-
-// isEGTarget reports whether entity belongs to the current Energy-Guard target.
-func (m *Manager) isEGTarget(entity spineapi.EntityRemoteInterface) bool {
-	ski := entitySKI(entity)
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return ski != "" && ski == entitySKI(m.egEntity)
-}
-
-// clearEGTargetFor drops the Energy-Guard target when its device disconnects,
-// so a reconnect (with fresh SPINE entities) is re-discovered cleanly.
-func (m *Manager) clearEGTargetFor(ski string) {
-	m.mu.Lock()
-	if entitySKI(m.egEntity) == ski {
-		m.egEntity = nil
-	}
+	delete(m.evEntities, ski)
 	m.mu.Unlock()
 }
 

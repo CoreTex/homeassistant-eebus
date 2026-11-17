@@ -91,22 +91,43 @@ class EebusRemoteEntity(CoordinatorEntity[EebusCoordinator]):
 
     @property
     def device_data(self) -> dict[str, Any]:
-        """Per-device measurements reported by this remote."""
-        devices = (self.coordinator.data or {}).get("devices") or {}
-        return devices.get(self._ski) or {}
+        """Per-device capabilities and measurements reported by this remote."""
+        return device_data(self.coordinator.data, self._ski)
 
     @property
     def available(self) -> bool:
         return super().available and bool(self.conn)
 
 
+def device_data(data: dict[str, Any] | None, ski: str) -> dict[str, Any]:
+    """Per-device block of the bridge state (capabilities and measurements)."""
+    devices = (data or {}).get("devices") or {}
+    return devices.get(ski) or {}
+
+
+def get(data: dict[str, Any] | None, *path: str) -> Any:
+    """Safe nested lookup."""
+    cur: Any = data
+    for key in path:
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(key)
+    return cur
+
+
 @callback
 def async_track_remotes(
     coordinator: EebusCoordinator,
     add_entities: Callable[[Iterable[Entity]], None],
-    factory: Callable[[EebusCoordinator, str], Iterable[Entity]],
+    factory: Callable[[EebusCoordinator, str, dict[str, Any]], Iterable[Entity]],
 ) -> None:
-    """Add entities from ``factory`` for every remote SKI, now and later.
+    """Add entities from ``factory`` for every remote device, now and later.
+
+    ``factory`` receives the device's current data and returns the entities
+    that apply to it (by capability). It is re-evaluated on every update, and
+    entities whose unique_id is already known are skipped, so capabilities
+    discovered later (e.g. a vehicle plugged in, Energy-Guard control enabled)
+    add their entities on the fly.
 
     Also keeps the device-registry name/brand/model in sync once mDNS details
     arrive (trusted SKIs from the add-on config are known before mDNS sees
@@ -117,11 +138,16 @@ def async_track_remotes(
 
     @callback
     def _refresh() -> None:
-        remotes = connections(coordinator.data)
-        new = [ski for ski in remotes if ski not in known]
+        data = coordinator.data
+        remotes = connections(data)
+        new: list[Entity] = []
+        for ski in remotes:
+            for entity in factory(coordinator, ski, device_data(data, ski)):
+                if entity.unique_id and entity.unique_id not in known:
+                    known.add(entity.unique_id)
+                    new.append(entity)
         if new:
-            known.update(new)
-            add_entities(e for ski in new for e in factory(coordinator, ski))
+            add_entities(new)
 
         registry = dr.async_get(coordinator.hass)
         for ski, conn in remotes.items():

@@ -104,6 +104,39 @@ class EebusApiClient:
     async def set_lpp_nominal_max(self, value_w: float) -> None:
         await self._post("/api/lpp/nominal_max", {"value_w": value_w})
 
+    # --- per-device control ---
+
+    async def set_device_limit(
+        self,
+        ski: str,
+        *,
+        production: bool = False,
+        target_w: float | None = None,
+        active: bool | None = None,
+        duration_s: float | None = None,
+    ) -> None:
+        """Stage (target_w) and/or apply (active) a device limit."""
+        kind = "lpp" if production else "lpc"
+        await self._post(
+            f"/api/devices/{ski}/{kind}",
+            {"target_w": target_w, "active": active, "duration_s": duration_s},
+        )
+
+    async def set_device_failsafe(
+        self, ski: str, power_w: float | None = None, duration_s: float | None = None
+    ) -> None:
+        await self._post(
+            f"/api/devices/{ski}/failsafe",
+            {"power_w": power_w, "duration_s": duration_s},
+        )
+
+    async def set_ev_current(self, ski: str, current_a: float | None) -> None:
+        """Set the charging current (A per phase); None hands control back."""
+        if current_a is None:
+            await self._post(f"/api/devices/{ski}/ev_current", {"release": True})
+        else:
+            await self._post(f"/api/devices/{ski}/ev_current", {"current_a": current_a})
+
     async def trust(self, ski: str) -> None:
         await self._post("/api/pairing/trust", {"ski": ski})
 

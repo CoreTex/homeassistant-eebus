@@ -1,0 +1,2 @@
+# Pinned: an unpinned install backtracks for a very long time.
+pytest-homeassistant-custom-component==0.13.375
