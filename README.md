@@ -276,6 +276,18 @@ which is intended to be contributed upstream.
 Not supported yet: Control of Battery, heat-pump optimisation (OHPCF), hot
 water and room temperature use cases. Heat pumps can be dimmed and monitored.
 
+## Changelog
+
+What changed in which version: see [CHANGELOG.md](CHANGELOG.md). Highlights
+of the current development line:
+
+- **0.4.x** – tidy settings with help texts, clear entity names, *Download
+  diagnostics* with the raw data of every device.
+- **0.3.x** – device classes, wallbox charge modes with PV surplus, limits and
+  failsafe per device, §14a sharing by demand (incl. storage), §14a
+  simulation, MOI/MOB inverter and battery monitoring.
+- **0.2.0** – several devices (wallboxes) next to the inverter.
+
 ## Development
 
 ```bash

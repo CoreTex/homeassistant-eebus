@@ -141,3 +141,9 @@ set, send `Authorization: Bearer <token>` (or `?token=` for the WebSocket).
 | `POST /api/lpc/target` · `/api/lpp/target` | `{value_w, duration_s?}` – stage a leading-inverter limit |
 | `POST /api/lpc/activate` · `/api/lpp/activate` | `{active}` – apply / remove the staged leading-inverter limit |
 | `GET /api/pairing`, `POST /api/pairing/trust` · `/forget` | `{ski}` – pairing |
+
+## Changelog
+
+The add-on's *Changelog* tab lists the add-on changes. For both add-on and
+integration see
+[CHANGELOG.md](https://github.com/CoreTex/homeassistant-eebus/blob/dev/CHANGELOG.md).
