@@ -342,3 +342,34 @@ func TestHandleEventIgnoresIrrelevantEvents(t *testing.T) {
 		t.Error("irrelevant events must not create devices")
 	}
 }
+
+func TestPlausibleStateOfEnergy(t *testing.T) {
+	f := func(v float64) *float64 { return &v }
+
+	// KOSTAL: stateOfEnergy 304704 Wh with 4416 Wh capacity at 69 % -> 3047 Wh
+	got, fixed := plausibleStateOfEnergy(&store.BatteryState{
+		StateOfEnergyWh: f(304704), UsableCapacityWh: f(4416), StateOfChargePct: f(69),
+	})
+	if !fixed || got == nil || math.Abs(*got-3047.04) > 0.01 {
+		t.Errorf("KOSTAL value not corrected: %v %v", got, fixed)
+	}
+
+	// plausible values are kept
+	if _, fixed := plausibleStateOfEnergy(&store.BatteryState{
+		StateOfEnergyWh: f(3047), UsableCapacityWh: f(4416), StateOfChargePct: f(69),
+	}); fixed {
+		t.Error("plausible value must not be touched")
+	}
+
+	// implausible without SoC: hidden
+	if got, fixed := plausibleStateOfEnergy(&store.BatteryState{
+		StateOfEnergyWh: f(304704), UsableCapacityWh: f(4416),
+	}); !fixed || got != nil {
+		t.Errorf("implausible value without SoC must be hidden: %v %v", got, fixed)
+	}
+
+	// unknown capacity: nothing to compare against
+	if _, fixed := plausibleStateOfEnergy(&store.BatteryState{StateOfEnergyWh: f(304704)}); fixed {
+		t.Error("without capacity the value must be kept")
+	}
+}

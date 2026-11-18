@@ -54,6 +54,8 @@ type Manager struct {
 	distMu sync.Mutex
 	// lastDistribution throttles measurement-driven re-distribution (unix ns).
 	lastDistribution atomic.Int64
+	// soeWarned: implausible battery stored energy was already logged
+	soeWarned atomic.Bool
 	// lpcExpiry ends incoming consumption limits after their duration and
 	// tracks the §14a simulation.
 	lpcExpiry lpcExpiry

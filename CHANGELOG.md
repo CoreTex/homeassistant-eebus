@@ -8,6 +8,22 @@ and restart Home Assistant after updating the integration.
 `https://github.com/CoreTex/homeassistant-eebus#dev`, integration via HACS with
 beta versions enabled).
 
+## 0.4.2-dev – 2026-11-18
+
+### New
+- **More battery values (MOB)**, found with *Download diagnostics* on a
+  KOSTAL PLENTICORE G3: energy stored, usable capacity, load cycles, DC voltage
+  and DC current.
+
+### Fixed
+- Battery charged/discharged energy also read from the DC counters
+  (`dcChargeEnergy` / `dcDischargeEnergy`) – they showed "unavailable" on the
+  KOSTAL.
+- The KOSTAL reports the stored energy 100 times too high (state of charge in
+  percent × capacity). The bridge detects a stored energy above the capacity
+  and uses state of charge × capacity instead.
+- Diagnostics list empty feature lists as `[]` instead of `null`.
+
 ## 0.4.1-dev – 2026-11-18
 
 ### New

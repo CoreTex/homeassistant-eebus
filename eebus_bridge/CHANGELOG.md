@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.2-dev
+
+- MOB: energy stored, usable capacity, load cycles, DC voltage and current;
+  charged/discharged energy falls back to the DC counters (fork
+  `CoreTex/eebus-go` updated).
+- A stored energy above the usable capacity (KOSTAL: SoC% × capacity) is
+  replaced by state of charge × capacity.
+- Diagnostics: empty lists as `[]`.
+
 ## 0.4.1-dev
 
 - **Diagnostics:** new `GET /api/diagnostics` returns the raw SPINE data the

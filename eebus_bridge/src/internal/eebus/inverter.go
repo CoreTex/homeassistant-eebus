@@ -67,6 +67,23 @@ func (m *Manager) onMOI(_ string, device spineapi.DeviceRemoteInterface, entity 
 	}
 }
 
+// plausibleStateOfEnergy corrects a stored energy above the usable capacity.
+// Some devices (KOSTAL PLENTICORE G3) report stateOfEnergy as SoC% x capacity
+// without dividing by 100. Without a SoC the value cannot be trusted at all.
+func plausibleStateOfEnergy(b *store.BatteryState) (*float64, bool) {
+	if b.StateOfEnergyWh == nil || b.UsableCapacityWh == nil || *b.UsableCapacityWh <= 0 {
+		return nil, false
+	}
+	if *b.StateOfEnergyWh <= *b.UsableCapacityWh*1.05 {
+		return nil, false
+	}
+	if b.StateOfChargePct == nil {
+		return nil, true // implausible and nothing to derive it from: hide it
+	}
+	v := *b.StateOfChargePct / 100 * *b.UsableCapacityWh
+	return &v, true
+}
+
 func negate(v []float64) []float64 {
 	out := make([]float64, len(v))
 	for i, x := range v {
@@ -109,6 +126,32 @@ func (m *Manager) onMOB(_ string, device spineapi.DeviceRemoteInterface, entity 
 			if v, err := m.mob.Temperature(entity); err == nil {
 				dst.TemperatureC = ptr(v)
 			}
+		case mobuc.DataUpdateStateOfEnergy:
+			if v, err := m.mob.StateOfEnergy(entity); err == nil {
+				dst.StateOfEnergyWh = ptr(v)
+			}
+		case mobuc.DataUpdateUseableCapacity:
+			if v, err := m.mob.UseableCapacity(entity); err == nil {
+				dst.UsableCapacityWh = ptr(v)
+			}
+		case mobuc.DataUpdateLoadCycleCount:
+			if v, err := m.mob.LoadCycleCount(entity); err == nil {
+				dst.CycleCount = ptr(v)
+			}
+		case mobuc.DataUpdateVoltage:
+			if v, err := m.mob.Voltage(entity); err == nil {
+				dst.VoltageV = ptr(v)
+			}
+		case mobuc.DataUpdateCurrent:
+			if v, err := m.mob.Current(entity); err == nil {
+				dst.CurrentA = ptr(v)
+			}
+		}
+		if fixed, ok := plausibleStateOfEnergy(dst); ok {
+			if !m.soeWarned.Swap(true) {
+				m.logger.Infof("battery reports a stored energy above its capacity; using state of charge x capacity instead")
+			}
+			dst.StateOfEnergyWh = fixed
 		}
 	}
 	ski := device.Ski()

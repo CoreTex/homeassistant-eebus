@@ -59,7 +59,7 @@ func (m *Manager) spineDevices() []SpineDevice {
 }
 
 func dumpDevice(dev spineapi.DeviceRemoteInterface) SpineDevice {
-	d := SpineDevice{SKI: dev.Ski()}
+	d := SpineDevice{SKI: dev.Ski(), Entities: []SpineEntity{}}
 	if addr := dev.Address(); addr != nil {
 		d.Address = string(*addr)
 	}
@@ -70,7 +70,7 @@ func dumpDevice(dev spineapi.DeviceRemoteInterface) SpineDevice {
 		if e == nil {
 			continue
 		}
-		ent := SpineEntity{Type: string(e.EntityType())}
+		ent := SpineEntity{Type: string(e.EntityType()), Features: []SpineFeature{}}
 		if a := e.Address(); a != nil {
 			for _, x := range a.Entity {
 				ent.Address = append(ent.Address, uint(x))

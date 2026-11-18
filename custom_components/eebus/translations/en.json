@@ -163,7 +163,12 @@
           "control_box": "Control box",
           "generic": "Other"
         }
-      }
+      },
+      "remote_battery_energy_stored": { "name": "Battery energy stored" },
+      "remote_battery_capacity": { "name": "Battery usable capacity" },
+      "remote_battery_cycles": { "name": "Battery load cycles" },
+      "remote_battery_voltage": { "name": "Battery voltage" },
+      "remote_battery_current": { "name": "Battery current" }
     },
     "binary_sensor": {
       "consumption_limit_active": { "name": "Grid operator limit active (consumption)" },

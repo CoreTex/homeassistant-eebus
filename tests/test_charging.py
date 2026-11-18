@@ -370,6 +370,9 @@ async def test_ui_cleanup(hass: HomeAssistant) -> None:
     kostal["use_cases"] = ["eg_lpc", "eg_lpp", "mpc", "moi", "mob"]
     kostal["inverter_ac"] = {"supported": True, "power_w": 0.0, "yield_total_wh": 28005680.0}
     kostal["control"]["lpc_applied_w"] = 500.0
+    kostal["battery"] = {"supported": True, "state_of_charge_pct": 69.0, "state_of_energy_wh": 3047.04,
+                         "usable_capacity_wh": 4416.0, "cycle_count": 1357.0, "voltage_v": 263.7,
+                         "current_a": 0.0, "temperature_c": 27.5}
     entry = MockConfigEntry(domain="eebus", unique_id=BRIDGE,
                             data={"host": "127.0.0.1", "port": 7050, "token": None})
     entry.add_to_hass(hass)
@@ -389,6 +392,12 @@ async def test_ui_cleanup(hass: HomeAssistant) -> None:
         assert eid("sensor", "remote_power") is None
         assert eid("sensor", "remote_energy_produced") is None
         assert hass.states.get(eid("sensor", "remote_inverter_yield_total")).state == "28005680.0"
+
+        # MOB battery values of the KOSTAL
+        assert hass.states.get(eid("sensor", "remote_battery_energy_stored")).state == "3047.04"
+        assert hass.states.get(eid("sensor", "remote_battery_capacity")).state == "4416.0"
+        assert hass.states.get(eid("sensor", "remote_battery_cycles")).state == "1357.0"
+        assert hass.states.get(eid("sensor", "remote_battery_voltage")).state == "263.7"
 
         limited = hass.states.get(eid("binary_sensor", "lpc_limited"))
         assert limited.state == "on" and limited.attributes["limit_w"] == 500.0

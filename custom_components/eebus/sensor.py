@@ -411,6 +411,11 @@ REMOTE_SENSORS: tuple[EebusSensorEntityDescription, ...] = (
     _remote("remote_battery_energy_charged", "battery", "energy_charged_wh", device_class=_E, unit=_WH, state_class=_TI),
     _remote("remote_battery_energy_discharged", "battery", "energy_discharged_wh", device_class=_E, unit=_WH, state_class=_TI),
     _remote("remote_battery_soh", "battery", "state_of_health_pct", unit=PERCENTAGE, category=_DIAG),
+    _remote("remote_battery_energy_stored", "battery", "state_of_energy_wh", device_class=SensorDeviceClass.ENERGY_STORAGE, unit=_WH),
+    _remote("remote_battery_capacity", "battery", "usable_capacity_wh", device_class=SensorDeviceClass.ENERGY_STORAGE, unit=_WH, category=_DIAG),
+    _remote("remote_battery_cycles", "battery", "cycle_count", state_class=SensorStateClass.TOTAL_INCREASING, category=_DIAG),
+    _remote("remote_battery_voltage", "battery", "voltage_v", device_class=SensorDeviceClass.VOLTAGE, unit=UnitOfElectricPotential.VOLT, category=_DIAG),
+    _remote("remote_battery_current", "battery", "current_a", device_class=SensorDeviceClass.CURRENT, unit=_A, category=_DIAG),
     _remote("remote_battery_temperature", "battery", "temperature_c", device_class=SensorDeviceClass.TEMPERATURE, unit=UnitOfTemperature.CELSIUS, category=_DIAG),
     # Inverter AC side (MOI): positive = feeding the AC side
     _remote("remote_inverter_ac_power", "inverter_ac", "power_w", device_class=_P, unit=_W),

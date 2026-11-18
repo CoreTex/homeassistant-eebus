@@ -32,4 +32,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/enbility/eebus-go => github.com/CoreTex/eebus-go v0.7.1-0.20261117201214-482aaef3433e
+replace github.com/enbility/eebus-go => github.com/CoreTex/eebus-go v0.7.1-0.20261118211659-fa33463494b6

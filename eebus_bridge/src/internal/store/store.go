@@ -106,6 +106,11 @@ type BatteryState struct {
 	// MOB only
 	StateOfHealthPct *float64 `json:"state_of_health_pct,omitempty"`
 	TemperatureC     *float64 `json:"temperature_c,omitempty"`
+	StateOfEnergyWh  *float64 `json:"state_of_energy_wh,omitempty"`
+	UsableCapacityWh *float64 `json:"usable_capacity_wh,omitempty"`
+	CycleCount       *float64 `json:"cycle_count,omitempty"`
+	VoltageV         *float64 `json:"voltage_v,omitempty"`
+	CurrentA         *float64 `json:"current_a,omitempty"`
 }
 
 // InverterState is VAPD data (eebus-go equivalent of Monitoring of Inverter / MOI).

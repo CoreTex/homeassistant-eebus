@@ -191,7 +191,12 @@
           "control_box": "Steuerbox",
           "generic": "Sonstiges"
         }
-      }
+      },
+      "remote_battery_energy_stored": { "name": "Batterie-Energieinhalt" },
+      "remote_battery_capacity": { "name": "Batterie nutzbare Kapazität" },
+      "remote_battery_cycles": { "name": "Batterie-Ladezyklen" },
+      "remote_battery_voltage": { "name": "Batteriespannung" },
+      "remote_battery_current": { "name": "Batteriestrom" }
     },
     "binary_sensor": {
       "consumption_limit_active": { "name": "Netzbetreiber-Limit Verbrauch aktiv" },
