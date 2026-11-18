@@ -178,7 +178,7 @@
       "remote_inverter_ac_power": { "name": "Wechselrichter AC-Leistung" },
       "remote_inverter_energy_produced": { "name": "Wechselrichter Energie erzeugt" },
       "remote_inverter_energy_consumed": { "name": "Wechselrichter Energie bezogen" },
-      "remote_inverter_yield_total": { "name": "Wechselrichter Ertrag gesamt" },
+      "remote_inverter_yield_total": { "name": "Wechselrichter PV-Ertrag gesamt" },
       "remote_inverter_frequency": { "name": "Wechselrichter-Frequenz" },
       "site_inverter_ac_power": { "name": "Wechselrichter AC-Leistung gesamt" },
       "remote_category": {

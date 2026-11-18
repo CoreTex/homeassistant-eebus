@@ -150,7 +150,7 @@
       "remote_inverter_ac_power": { "name": "Inverter AC power" },
       "remote_inverter_energy_produced": { "name": "Inverter energy produced" },
       "remote_inverter_energy_consumed": { "name": "Inverter energy consumed" },
-      "remote_inverter_yield_total": { "name": "Inverter yield total" },
+      "remote_inverter_yield_total": { "name": "Inverter PV yield total" },
       "remote_inverter_frequency": { "name": "Inverter frequency" },
       "site_inverter_ac_power": { "name": "Total inverter AC power" },
       "remote_category": {
