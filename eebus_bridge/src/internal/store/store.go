@@ -29,6 +29,9 @@ type Features struct {
 	EV            bool `json:"ev"`
 	MGCP          bool `json:"mgcp"`
 	DistributeLPC bool `json:"distribute_lpc"`
+	// DistributeLPCInverters: inverters (storage) take part in the share-out.
+	DistributeLPCInverters bool `json:"distribute_lpc_inverters"`
+	LPCSimulation          bool `json:"lpc_simulation"`
 }
 
 // Connection is a remote EEBUS service we know about.

@@ -143,3 +143,38 @@ func TestTrackLPCExpiryRearm(t *testing.T) {
 	}
 	m.expireLPC("stale") // no-op for a stale key
 }
+
+// A repeated identical write (e.g. a control box re-sending its limit, or the
+// simulation started again) restarts the duration.
+func TestRepeatedLimitRestartsDuration(t *testing.T) {
+	m := newRealManager(t, nil)
+	if err := m.SimulateGridLimit(4200, true, 300); err != nil {
+		t.Fatal(err)
+	}
+	first := *m.store.Snapshot().LPC.Limit.ExpiresAt
+	time.Sleep(50 * time.Millisecond)
+
+	// a plain re-read must not extend it
+	m.refreshLPC()
+	if again := *m.store.Snapshot().LPC.Limit.ExpiresAt; !again.Equal(first) {
+		t.Fatalf("re-read extended the expiry: %v -> %v", first, again)
+	}
+
+	if err := m.SimulateGridLimit(4200, true, 300); err != nil {
+		t.Fatal(err)
+	}
+	if second := *m.store.Snapshot().LPC.Limit.ExpiresAt; !second.After(first) {
+		t.Errorf("repeated limit must restart the duration: %v -> %v", first, second)
+	}
+}
+
+func TestFeaturesReported(t *testing.T) {
+	m := newRealManager(t, func(c *config.Config) {
+		c.DistributeLPC = true
+		c.DistributeLPCInverters = true
+	})
+	f := m.store.Snapshot().Service.Features
+	if !f.DistributeLPC || !f.DistributeLPCInverters || !f.LPCSimulation {
+		t.Errorf("features not reported: %+v", f)
+	}
+}

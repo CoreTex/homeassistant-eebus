@@ -279,6 +279,9 @@ func (m *Manager) publishServiceInfo() {
 			EV:            m.cfg.EnableEV,
 			MGCP:          m.cfg.EnableMGCP,
 			DistributeLPC: m.cfg.DistributeLPC,
+
+			DistributeLPCInverters: m.cfg.DistributeLPCInverters,
+			LPCSimulation:          m.cfg.EnableLPCSimulation,
 		},
 	}
 	if local := m.svc.LocalService(); local != nil {

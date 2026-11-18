@@ -290,6 +290,13 @@ func (m *Manager) distribute() {
 		if state.Active {
 			m.logger.Infof("§14a: sharing %.0f W: %v", state.LimitW, shares)
 		}
+		if state.Active && !snap.Distribution.Active && !m.cfg.DistributeLPCInverters {
+			for ski, d := range snap.Devices {
+				if d.Category == store.CategoryInverter && lpcCapable[ski] {
+					m.logger.Infof("§14a: inverter %s not included (enable distribute_lpc_inverters if its storage is registered under §14a)", ski)
+				}
+			}
+		}
 		m.store.Update(func(s *store.State) { s.Distribution = state })
 	}
 }

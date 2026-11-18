@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.3-dev
+
+- **Fix:** a repeated identical limit (a control box re-sending its limit, or
+  the simulation started again) now restarts the duration; before, it expired
+  at the time of the first write.
+- `service.features` also reports `distribute_lpc_inverters` and
+  `lpc_simulation`; the log names inverters left out of the §14a share-out
+  because `distribute_lpc_inverters` is off.
+
 ## 0.3.2-dev
 
 - `distribute_lpc_inverters`: inverters with LPC (battery charging from the

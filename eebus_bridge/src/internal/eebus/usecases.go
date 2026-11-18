@@ -134,8 +134,11 @@ func (m *Manager) onCsLPC(_ string, device spineapi.DeviceRemoteInterface, _ spi
 				m.csLPC.ApproveOrDenyDeviceConfiguration(mc, true, "")
 			}
 		}
-	case cslpc.DataUpdateLimit,
-		cslpc.DataUpdateFailsafeConsumptionActivePowerLimit,
+	case cslpc.DataUpdateLimit:
+		// a newly written limit: its duration starts now
+		m.restartLPCExpiry()
+		m.refreshLPC()
+	case cslpc.DataUpdateFailsafeConsumptionActivePowerLimit,
 		cslpc.DataUpdateFailsafeDurationMinimum,
 		cslpc.DataUpdateHeartbeat:
 		m.refreshLPC()

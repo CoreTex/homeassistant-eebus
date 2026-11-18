@@ -65,6 +65,21 @@ func (m *Manager) trackLPCExpiry(l ucapi.LoadLimit) *time.Time {
 	return &t
 }
 
+// restartLPCExpiry forgets the armed limit, so the next refresh arms the
+// timer from now. It is called on every new write of a limit (a control box
+// re-sending the same limit, or a repeated simulation): the duration starts
+// again with each write, while mere re-reads must not extend it.
+func (m *Manager) restartLPCExpiry() {
+	e := &m.lpcExpiry
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.timer != nil {
+		e.timer.Stop()
+		e.timer = nil
+	}
+	e.key = ""
+}
+
 // expireLPC ends the limit the timer was armed for, unless it changed since.
 func (m *Manager) expireLPC(key string) {
 	e := &m.lpcExpiry
@@ -138,6 +153,7 @@ func (m *Manager) SimulateGridLimit(valueW float64, active bool, durationS float
 	}); err != nil {
 		return err
 	}
+	m.restartLPCExpiry()
 	m.lpcExpiry.mu.Lock()
 	m.lpcExpiry.simulated = active
 	m.lpcExpiry.mu.Unlock()

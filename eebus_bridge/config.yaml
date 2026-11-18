@@ -1,5 +1,5 @@
 name: EEBUS Bridge
-version: "0.3.2-dev"
+version: "0.3.3-dev"
 slug: eebus_bridge
 description: >-
   EEBUS (SHIP/SPINE) bridge for Home Assistant. Receives LPC/LPP power limits as
