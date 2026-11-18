@@ -90,7 +90,18 @@ async def test_remotes(hass: HomeAssistant) -> None:
         assert hass.states.get(eid("sensor", INV, "remote_power")).state == "500.0"
         assert hass.states.get(eid("sensor", INV, "remote_energy_consumed")).state == "unavailable"
         # bridge-level sensor still from primary only
-        assert hass.states.get("sensor.eebus_bridge_active_power").state == "500.0"
+        # the bridge-level copy of the leading inverter exists but is disabled
+        # by default (the values live on the inverter device)
+        leading = ent.async_get_entity_id("sensor", "eebus", f"{BRIDGE}_active_power")
+        assert leading and ent.async_get(leading).disabled_by is er.RegistryEntryDisabler.INTEGRATION
+        for key in ("power_l1", "voltage_l3", "battery_soc", "inverter_consumption_limit"):
+            domain = "number" if key == "inverter_consumption_limit" else "sensor"
+            eid_ = ent.async_get_entity_id(domain, "eebus", f"{BRIDGE}_{key}")
+            assert ent.async_get(eid_).disabled_by is er.RegistryEntryDisabler.INTEGRATION, key
+        # grid operator limit stays enabled and has a clear name
+        limit = ent.async_get_entity_id("binary_sensor", "eebus", f"{BRIDGE}_consumption_limit_active")
+        assert ent.async_get(limit).disabled_by is None
+        assert limit == "binary_sensor.eebus_bridge_grid_operator_limit_active_consumption"
 
         # devices: linked via the bridge, named from mDNS
         bridge_dev = dev.async_get_device_by_identifier(("eebus", BRIDGE), entry.entry_id)

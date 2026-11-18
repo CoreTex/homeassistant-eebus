@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.4.0-dev
+
+Clean-up release: settings, names and documentation.
+
+- **Add-on settings** are grouped (devices & pairing, control, grid operator
+  limits, monitoring, advanced) and every option has a name and help text
+  (English, German). The newer options are no longer hidden as optional.
+- **Integration:**
+  - Clear names: *Grid operator limit …* for what the control box demands,
+    *Consumption limit* / *Feed-in limit* for what you send to a device,
+    *Leading inverter …* for bridge-level copies.
+  - Status sensors show plain on/off (no "running" / "not running").
+  - New *Consumption limited* / *Feed-in limited* per device (limit as
+    attribute); the numeric *… (applied)* sensors are disabled by default.
+  - Duplicates are disabled by default for new installations: bridge-level
+    copies of the leading inverter, per-phase details, MPC power/energy on
+    inverters that report MOI (identical values).
+  - Options dialog with help texts.
+- **Documentation** rewritten: features per device, quick start, settings,
+  entities, charge modes, §14a, actions, automations, troubleshooting. The
+  license note now correctly names the MIT-licensed eebus-go libraries.
+
 ## 0.3.3-dev
 
 - **Fix:** a repeated identical limit (a control box re-sending its limit, or

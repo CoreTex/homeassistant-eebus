@@ -1,209 +1,298 @@
 # EEBUS for Home Assistant
 
-Use **EEBUS** use cases in Home Assistant to monitor and control your energy
-devices. This repository ships **two coupled parts**:
+Connect your **EEBUS** energy devices – inverters, batteries, wallboxes, heat
+pumps, smart meters and the grid operator's control box – to Home Assistant,
+monitor them and control them, including **§14a EnWG** grid operator limits.
 
-1. **`eebus_bridge`** – a Home Assistant **add-on** (Go service based on
-   [`enbility/eebus-go`](https://github.com/enbility/eebus-go)) that speaks
-   SHIP/SPINE on your LAN and exposes a local REST + WebSocket API.
-2. **`custom_components/eebus`** – a **custom integration** (installable via
-   HACS) that turns the add-on's data into native Home Assistant entities and
-   services.
+The project has two parts that work together:
 
-Everything is **generic**: no network-, vendor- or device-specific data is baked
-in. You provide identities and trust at runtime, so the whole community can use it.
-
-## Why two parts?
-
-`eebus-go` is written in Go and EEBUS requires SHIP (mDNS discovery + TLS with
-certificate/SKI pairing). Home Assistant entities are Python. The add-on runs the
-Go stack in its own container; the integration creates entities and talks to it.
-
-```
-  Grid box / §14a controller ─┐                ┌─ Inverter / Battery
-        (Energy Guard)        │   EEBUS/SHIP   │   (Controllable System,
-                              ▼   (LAN, TLS)   ▼    Monitored Unit)
-                     ┌───────────────────────────────┐
-                     │   eebus_bridge  (Go add-on)    │
-                     │   CS · EG · MA · VABD · VAPD   │
-                     └───────────────┬───────────────┘
-                                     │  REST + WebSocket (local API)
-                                     ▼
-                     ┌───────────────────────────────┐
-                     │ custom_components/eebus (Python)│
-                     │  sensors · binary_sensors ·    │
-                     │  numbers · switches · services │
-                     └───────────────────────────────┘
-```
-
-## Supported use cases
-
-| User use case | EEBUS implementation | Role of Home Assistant |
+| Part | What it is | Install via |
 | --- | --- | --- |
-| **LPC** – Limitation of Power Consumption | `cs/lpc` (+ `eg/lpc`) | Receives & **holds** consumption limits; can also send them |
-| **LPP** – Limitation of Power Production | `cs/lpp` (+ `eg/lpp`) | Receives & **holds** production limits; can also send them |
-| **MPC** – Monitoring of Power Consumption | `ma/mpc` | Reads power, energy, current, voltage, frequency |
-| **MOI** – Monitoring of Inverter | `ma/moi`* (+ `cem/vapd`) | Reads inverter AC power, energy, yield, current, voltage, frequency |
-| **MOB** – Monitoring of Battery | `ma/mob`* (+ `cem/vabd`) | Reads battery power, state of charge/health, energy, temperature |
+| **EEBUS Bridge** (`eebus_bridge/`) | Home Assistant **add-on** that speaks EEBUS (SHIP/SPINE) on your network, based on [`enbility/eebus-go`](https://github.com/enbility/eebus-go) | Add-on store (repository URL below) |
+| **EEBUS integration** (`custom_components/eebus/`) | Turns the bridge into Home Assistant devices, entities and actions | HACS |
 
-\* **MOI/MOB** are not in upstream `eebus-go` yet. The add-on builds against
-the fork [`CoreTex/eebus-go`](https://github.com/CoreTex/eebus-go/tree/feature/uc-ma-moi-mob)
-(upstream `dev` + MOI/MOB), which is intended to be contributed upstream.
-The aggregated VAPD/VABD use cases are supported as well.
+Nothing in it is specific to a vendor or network: devices are paired and
+classified at runtime.
 
-## Installation
+## What you can do
 
-### 1. Add-on (Home Assistant OS / Supervised)
+| Device | Monitor | Control |
+| --- | --- | --- |
+| **Inverter / hybrid inverter** | AC power, energy, yield, current, voltage, frequency; PV data | Consumption and feed-in limits; take part in §14a sharing (battery charging from the grid) |
+| **Battery** | Power, state of charge, state of health, energy, temperature – as reported | – (via the inverter's limits) |
+| **Wallbox** | Vehicle plugged in, charge state, charging power and energy, vehicle state of charge – if the wallbox reports them | **Charge modes** incl. PV-surplus charging, power or current limit, §14a dimming, failsafe |
+| **Heat pump** | Power, energy | §14a dimming (consumption limit), failsafe |
+| **Grid meter / gateway** | Grid power, feed-in and consumption energy, feed-in limitation | – |
+| **Grid operator control box** | Received §14a / feed-in limits, heartbeat | Limits are held and **shared by demand** among your controllable devices |
 
-1. **Settings → Add-ons → Add-on store → ⋮ → Repositories** and add:
-   `https://github.com/CoreTex/homeassistant-eebus`
-2. Install **EEBUS Bridge**, review the options, and **Start** it.
-3. Open the **Log** and note the printed **Local SKI**. Trust this SKI on your
-   grid box / inverter, and put the other device's SKI into `trusted_skis` /
-   `inverter_ski` (or enable `auto_accept_trust` while pairing).
+What a device offers depends on the EEBUS use cases it implements; each device
+only gets entities for data it really reports. Tested in the field: **KOSTAL
+PLENTICORE G3** (inverter + battery: monitoring, consumption and feed-in
+limits) and **KATHREIN AC40** wallbox (§14a power limit only, no measurements).
 
-See [`eebus_bridge/DOCS.md`](eebus_bridge/DOCS.md) for all options and the
-"try it without hardware" walkthrough.
+## How it works
 
-### 2. Integration (HACS)
+```
+  Grid operator control box ─┐                 ┌─ Inverter / battery
+         (§14a limits)       │   EEBUS / SHIP  ├─ Wallboxes
+                             ▼  (LAN, TLS)     ├─ Heat pumps
+                 ┌────────────────────────────┐└─ Smart meter
+                 │   EEBUS Bridge (add-on)     │
+                 │   home energy manager:      │  - holds grid operator limits
+                 │   classifies devices,       │  - shares them by demand (§14a)
+                 │   monitors, sends limits    │  - failsafe, limit expiry
+                 └─────────────┬──────────────┘
+                               │ local REST + WebSocket API
+                 ┌─────────────▼──────────────┐
+                 │  EEBUS integration (HACS)   │  - one HA device per EEBUS device
+                 │                             │  - charge modes, PV surplus
+                 └────────────────────────────┘  - actions, repairs
+```
 
-1. In **HACS → ⋮ → Custom repositories**, add this repo URL with category
-   **Integration**, then install **EEBUS**.
-2. **Settings → Devices & Services → Add Integration → EEBUS**.
-3. Enter the add-on API address. Because the add-on uses host networking, use
-   your **Home Assistant host IP** and the `api_port` (default `7050`); add the
-   `api_token` if you set one.
+**Safety-relevant logic runs in the add-on** (holding and sharing grid
+operator limits, limit expiry, failsafe values), so it keeps working while Home
+Assistant restarts. **Comfort logic runs in Home Assistant** (charge modes,
+PV surplus), where any grid power sensor can be used.
 
-## Operating concept
+## Quick start
 
-**One HA device per EEBUS device.** The bridge is the hub; every inverter,
-wallbox, heat pump or meter it knows becomes its own device underneath it, with
-entities created *by capability* - a device only gets the entities for data it
-actually reports (see the device classes in the add-on docs).
+1. **Add-on:** *Settings → Add-ons → Add-on store → ⋮ → Repositories*, add
+   `https://github.com/CoreTex/homeassistant-eebus`, install **EEBUS Bridge**
+   and start it.
+2. **Pair your devices:** the add-on log shows the bridge's **Local SKI**.
+   Enter it in the EEBUS settings of each device (inverter, wallbox, ...) and
+   add the device's SKI to the add-on option *Trusted devices*. Alternatively
+   switch on *Accept every pairing request* while pairing, then off again.
+3. **Integration:** in HACS add this repository as a custom repository
+   (category *Integration*), install **EEBUS**, restart Home Assistant, then
+   *Settings → Devices & services → Add integration → EEBUS*. Enter your
+   **Home Assistant host IP** and port `7050` (plus the API token if you set
+   one).
+4. **Enable control** (optional): add-on option *Control devices (Energy
+   Guard)*; set *Leading inverter* to your main inverter's SKI.
+5. **PV-surplus charging** (optional): *EEBUS → Configure* and pick your grid
+   power sensor.
 
-| Level | Entities |
-| --- | --- |
-| **Bridge** | received §14a/LPP limits, leading-inverter values, **site** totals (PV, battery, grid, charging, heat pumps), **PV surplus**, §14a distribution |
-| **Every device** | *Connected*, *Trusted* (pair / forget) |
-| **Inverter** | power, energy, PV, battery; *Consumption/Production limit* + switches |
-| **Wallbox** | **Charge mode**, *Charge power (manual)*, limit, failsafe; with vehicle data: plugged in, charge state, charging power, energy, SoC, current |
-| **Heat pump** | power, energy; *Consumption limit* (§14a dimming) + failsafe |
-| **Grid meter** | grid power, feed-in/consumption energy, feed-in limitation |
+> Add-on and integration are updated separately. After updating the
+> integration in HACS, **restart Home Assistant**.
 
-**Responsibilities are split on purpose:** safety-relevant limits (§14a share,
-failsafe) are enforced by the add-on itself, so they keep working while Home
-Assistant restarts. Comfort logic (charge modes, PV surplus) runs in Home
-Assistant, where any grid sensor can be used.
+## Configuration
 
-### Charge modes (per wallbox)
+### Add-on options
+
+Every option has a name and help text on the add-on's configuration page.
+
+| Group | Option | Default | Purpose |
+| --- | --- | --- | --- |
+| Devices & pairing | `inverter_ski` | – | Leading inverter: feeds the bridge-level inverter values and limits |
+| | `trusted_skis` | `[]` | Devices allowed to pair |
+| | `auto_accept_trust` | off | Accept every pairing request (only while pairing) |
+| Control | `enable_eg_control` | off | Send limits to devices (needed for most control features) |
+| | `distribute_lpc` | off | Share a grid operator limit among wallboxes and heat pumps (§14a) |
+| | `distribute_lpc_inverters` | off | Include storage registered under §14a in the sharing |
+| | `enable_lpc_simulation` | off | Allow simulating a grid operator limit (testing) |
+| Grid operator limits | `enable_lpc` / `enable_lpp` | on | Receive consumption / feed-in limits |
+| | `auto_approve_limits` | on | Accept limits automatically |
+| | `lpc_nominal_max_w` / `lpp_nominal_max_w` | 0 | Nominal power reported to the grid operator |
+| Monitoring | `enable_mpc`, `enable_inverter`, `enable_battery`, `enable_mgcp`, `enable_ev` | on | Power, inverter, battery, grid meter, wallbox/vehicle data |
+| Advanced | `device_brand`, `device_model`, `device_serial` | | How the bridge appears on the EEBUS network |
+| | `eebus_port`, `api_port`, `api_token`, `log_level` | 4715, 7050 | Network, API protection, logging |
+
+### Integration options (*EEBUS → Configure*)
+
+Settings for the wallbox charge modes, each with a help text: grid power
+sensor (positive when importing), reserve for the house, minimum/maximum
+charging power, start and stop delay of the PV mode, control interval.
+
+## In Home Assistant
+
+The **EEBUS Bridge** device holds everything that concerns the whole home:
+
+- **Grid operator limit** (consumption / feed-in): value, active, duration,
+  heartbeat – what the control box currently demands.
+- **Failsafe** and **nominal power** settings reported to the grid operator.
+- **Totals:** PV power, battery power, inverter AC power, grid power, charging
+  power, heat pump power, and the **PV surplus** seen by the charge controller.
+- **§14a sharing active** / average share, **§14a simulation active**.
+
+Every EEBUS device becomes **its own device** below the bridge with
+**Connected**, **Trusted** (pair / forget) and **Device type** (how the bridge
+classified it, with its use cases as attributes), plus whatever it supports:
+
+- **Consumption limit** / **Feed-in limit**: value and a switch to apply it;
+  **Consumption limited** / **Feed-in limited** show whether a limit is in
+  force right now (the value as attribute `limit_w`), **§14a share** shows the
+  device's part of a grid operator limit; **Failsafe power / duration**.
+- **Wallboxes:** **Charge mode**, **Charge power (manual)**; with vehicle
+  data also plugged in, charge state, charging power, energy, state of charge
+  and current limits.
+- **Measurements** as reported: power, energy, PV, battery, inverter AC side,
+  grid meter values.
+
+Bridge-level copies of the leading inverter's values, per-phase details and
+other duplicates are disabled by default; the values are on the inverter's own
+device. Enable them in the entity settings if you need them.
+
+If the bridge finds wallboxes or heat pumps but *Control devices* is off, a
+**repair** in *Settings → Repairs* tells you what to enable.
+
+## Wallbox charge modes
 
 | Mode | Behaviour |
 | --- | --- |
-| `auto` | default - the bridge does not intervene (wallbox / §14a only) |
-| `off` | do not charge |
-| `pv` | PV surplus only; starts after the *start delay* once the surplus reaches the minimum power, rides through dips at minimum power for the *stop delay* |
-| `min_pv` | always at minimum power, more when there is surplus |
-| `fast` | full power |
-| `manual` | fixed power from *Charge power (manual)* |
+| `auto` | Default – the bridge does not intervene (wallbox / §14a only) |
+| `off` | Do not charge |
+| `pv` | PV surplus only; starts after the start delay once the surplus reaches the minimum power, rides through dips at minimum power for the stop delay |
+| `min_pv` | Always at minimum power, more when there is surplus |
+| `fast` | Full power |
+| `manual` | Fixed power from *Charge power (manual)* |
 
-Surplus = wallbox draw − grid power − reserve (grid power positive = import).
-Configure the grid sensor under **Settings → Devices & Services → EEBUS →
-Configure**; without one, a grid meter connected via EEBUS is used. Wallboxes
-that report the vehicle are controlled by charging current (OPEV), §14a-only
-wallboxes such as the KATHREIN AC40 by a power limit (requires
-`enable_eg_control` in the add-on). Several wallboxes in a PV mode share the
-surplus equally.
+Surplus = wallbox draw − grid power − reserve. Wallboxes that report the
+vehicle are controlled by charging current (OPEV), §14a-only wallboxes (e.g.
+KATHREIN AC40) by a power limit – this needs *Control devices*. Several
+wallboxes in a PV mode share the surplus. A wallbox without its own
+measurement is regulated on the grid power alone.
 
-## Automations
+## §14a: grid operator limits
 
-**Cheap night charging, PV during the day** (dynamic tariff or fixed times):
+- **Receive:** the bridge acts as the home's controllable system. Limits from
+  the grid operator's control box are accepted, shown and ended automatically
+  when their duration is over.
+- **Share by demand** (`distribute_lpc`): the limit is shared among the
+  connected wallboxes and heat pumps – with `distribute_lpc_inverters` also
+  among inverters whose storage is registered under §14a. Devices with a
+  measured consumption get their demand × 1.25 + 500 W, devices without a
+  measurement share the rest; the sum never exceeds the limit. Example with
+  4200 W: idle storage 500 W, wallbox 3700 W. Your own limits still apply – the
+  lower value wins.
+- **Failsafe:** a device that got a limit from the bridge falls back to its
+  failsafe power when the bridge stops (e.g. add-on restart). Set it per
+  device.
+- **Test without a control box** (`enable_lpc_simulation`): the action
+  *Simulate grid operator limit* injects a limit and runs through the whole
+  chain. It is refused while a real control box is connected or a real limit
+  is active.
+
+Limits you send yourself are your own energy management and no substitute for
+§14a control by the grid operator.
+
+## Actions
+
+| Action | Purpose |
+| --- | --- |
+| `eebus.set_device_limit` | Set / apply a consumption or feed-in limit on any EEBUS device, optionally for a duration |
+| `eebus.simulate_grid_limit` | Simulate a grid operator limit (testing, needs `enable_lpc_simulation`) |
+| `eebus.set_consumption_limit` / `eebus.set_production_limit` | Limit the leading inverter |
+| `eebus.trust_device` / `eebus.forget_device` | Pair / unpair a device by SKI |
+
+## Automation examples
+
+Cheap night charging, PV during the day:
 
 ```yaml
 automation:
   - alias: Wallbox fast at night
-    trigger:
-      - platform: time
+    triggers:
+      - trigger: time
         at: "23:00:00"
-    action:
-      - service: select.select_option
+    actions:
+      - action: select.select_option
         target:
           entity_id: select.kathrein_ac40_4ff37d1e_charge_mode
         data:
           option: fast
   - alias: Wallbox PV during the day
-    trigger:
-      - platform: time
+    triggers:
+      - trigger: time
         at: "06:00:00"
-    action:
-      - service: select.select_option
+    actions:
+      - action: select.select_option
         target:
           entity_id: select.kathrein_ac40_4ff37d1e_charge_mode
         data:
           option: pv
 ```
 
-**Dim the heat pump for two hours** (e.g. during a price peak):
+Dim the heat pump for two hours during a price peak:
 
 ```yaml
-- service: eebus.set_device_limit
+- action: eebus.set_device_limit
   data:
-    device_id: <your heat pump device>
+    device_id: <your heat pump>
     value_w: 4200
     active: true
     duration_s: 7200
 ```
 
-**Test the §14a chain without a control box** (add-on option
-`enable_lpc_simulation`; with `distribute_lpc` the limit is shared among the
-wallboxes and heat pumps and lifted after the duration):
-
-```yaml
-- service: eebus.simulate_grid_limit
-  data:
-    value_w: 4200
-    duration_s: 900
-```
-
-**Notify when the grid operator limits the home (§14a):**
+Notify when the grid operator limits the home:
 
 ```yaml
 automation:
-  - alias: §14a limit active
-    trigger:
-      - platform: state
-        entity_id: binary_sensor.eebus_bridge_consumption_limit_active
+  - alias: Grid operator limit
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.eebus_bridge_grid_operator_limit_active_consumption
         to: "on"
-    action:
-      - service: notify.notify
+    actions:
+      - action: notify.notify
         data:
           message: >-
-            Grid operator limit: {{ states('sensor.eebus_bridge_consumption_limit') }} W
+            Grid operator limit:
+            {{ states('sensor.eebus_bridge_grid_operator_limit_consumption') }} W
 ```
 
-Services: `eebus.set_consumption_limit`, `eebus.set_production_limit` (leading
-inverter), `eebus.set_device_limit` (any device), `eebus.trust_device`,
-`eebus.forget_device`, `eebus.simulate_grid_limit` (testing).
+Entity IDs depend on your device names and language; installations from
+before 0.4 keep their existing IDs.
+
+## Troubleshooting
+
+| Symptom | Check |
+| --- | --- |
+| A device reports "pairing failed" | Its SKI must be trusted (option or *Trusted* switch) **and** the bridge's SKI must be entered on the device |
+| No charge mode / limits on a wallbox | *Control devices* (`enable_eg_control`) on? Integration updated **and** Home Assistant restarted? See *Settings → Repairs* |
+| An inverter is left out of §14a sharing | Enable `distribute_lpc_inverters`; the add-on log names left-out inverters |
+| An action is missing | The integration is older than the add-on – update it in HACS and restart |
+| A value shows "unavailable" | The device does not report it (see the *Device type* attributes); set the add-on `log_level` to `debug` for details |
+
+Log lines like `operation is not supported on function electricalConnection…`
+are harmless: a device does not offer an optional read.
+
+## Supported EEBUS use cases
+
+| Use case | Bridge role |
+| --- | --- |
+| LPC / LPP – Limitation of Power Consumption / Production | Controllable system (receives grid operator limits) and Energy Guard (sends limits to devices) |
+| MPC – Monitoring of Power Consumption | Monitoring appliance |
+| MOI / MOB – Monitoring of Inverter / Battery | Monitoring appliance\* |
+| VAPD / VABD – aggregated PV / battery data | CEM |
+| MGCP – Monitoring of Grid Connection Point | Monitoring appliance |
+| EVSECC, EVCC, EVCEM, EVSOC, OPEV – wallbox and vehicle | CEM |
+
+\* MOI and MOB are not in upstream `eebus-go` yet. The add-on builds against
+the fork [`CoreTex/eebus-go`](https://github.com/CoreTex/eebus-go/tree/feature/uc-ma-moi-mob),
+which is intended to be contributed upstream.
+
+Not supported yet: Control of Battery, heat-pump optimisation (OHPCF), hot
+water and room temperature use cases. Heat pumps can be dimmed and monitored.
 
 ## Development
 
-Build & test the Go service locally:
-
 ```bash
+# add-on (Go)
 cd eebus_bridge/src
-go build ./...
-go vet ./...
-EEBUS_DATA_DIR=/tmp/eebus ./...   # see DOCS.md for stand-alone run
-```
+go build ./... && go vet ./... && go test -race ./...
 
-Check the integration:
-
-```bash
-python -m ruff check --config ruff.toml custom_components
+# integration (Python)
+python -m ruff check --config ruff.toml custom_components tests
 pip install --prefer-binary -r tests/requirements.txt
 python -m pytest -q -o asyncio_mode=auto tests
 ```
 
+The add-on's local API is documented in [`eebus_bridge/DOCS.md`](eebus_bridge/DOCS.md).
+
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE). Built on the Apache-2.0 licensed
-`enbility/eebus-go`, `ship-go` and `spine-go` libraries.
+Apache-2.0, see [LICENSE](LICENSE). Built on the MIT-licensed
+[`enbility/eebus-go`](https://github.com/enbility/eebus-go),
+[`ship-go`](https://github.com/enbility/ship-go) and
+[`spine-go`](https://github.com/enbility/spine-go).

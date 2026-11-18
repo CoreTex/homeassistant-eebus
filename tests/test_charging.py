@@ -353,10 +353,48 @@ async def test_simulate_grid_limit_service(hass: HomeAssistant) -> None:
         simulated = er.async_get(hass).async_get_entity_id("binary_sensor", "eebus", f"{BRIDGE}_lpc_simulated")
         assert simulated, "simulation sensor missing"
         assert hass.states.get(simulated).state == "on"
-        assert hass.states.get("binary_sensor.eebus_bridge_consumption_limit_active").state == "on"
+        limit = er.async_get(hass).async_get_entity_id("binary_sensor", "eebus", f"{BRIDGE}_consumption_limit_active")
+        assert hass.states.get(limit).state == "on"
 
         # a refusal of the bridge surfaces as an error
         sim.side_effect = EebusApiError("a real control box is connected; simulation refused")
         with pytest.raises(HomeAssistantError, match="simulation refused"):
             await hass.services.async_call("eebus", "simulate_grid_limit", {}, blocking=True)
+        assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_ui_cleanup(hass: HomeAssistant) -> None:
+    """MOI inverters get no MPC duplicates; limit status is a plain on/off with the value."""
+    state = copy.deepcopy(STATE)
+    kostal = state["devices"][KOSTAL]
+    kostal["use_cases"] = ["eg_lpc", "eg_lpp", "mpc", "moi", "mob"]
+    kostal["inverter_ac"] = {"supported": True, "power_w": 0.0, "yield_total_wh": 28005680.0}
+    kostal["control"]["lpc_applied_w"] = 500.0
+    entry = MockConfigEntry(domain="eebus", unique_id=BRIDGE,
+                            data={"host": "127.0.0.1", "port": 7050, "token": None})
+    entry.add_to_hass(hass)
+    with (
+        patch("custom_components.eebus.api.EebusApiClient.get_state",
+              AsyncMock(side_effect=lambda: copy.deepcopy(state))),
+        patch("custom_components.eebus.api.EebusApiClient.listen", _never),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        ent = er.async_get(hass)
+
+        def eid(domain, key):
+            return ent.async_get_entity_id(domain, "eebus", f"{BRIDGE}_{KOSTAL}_{key}")
+
+        # MPC copies are not created for an inverter that reports MOI
+        assert eid("sensor", "remote_power") is None
+        assert eid("sensor", "remote_energy_produced") is None
+        assert hass.states.get(eid("sensor", "remote_inverter_yield_total")).state == "28005680.0"
+
+        limited = hass.states.get(eid("binary_sensor", "lpc_limited"))
+        assert limited.state == "on" and limited.attributes["limit_w"] == 500.0
+        assert "device_class" not in limited.attributes  # plain on/off, no "running"
+        feed_in = hass.states.get(eid("binary_sensor", "lpp_limited"))
+        assert feed_in.state == "off"
+        # the numeric "applied" sensors are disabled by default
+        assert ent.async_get(eid("sensor", "lpc_applied")).disabled_by is er.RegistryEntryDisabler.INTEGRATION
         assert await hass.config_entries.async_unload(entry.entry_id)

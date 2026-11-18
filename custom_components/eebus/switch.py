@@ -50,6 +50,7 @@ SWITCHES: tuple[EebusSwitchEntityDescription, ...] = (
     EebusSwitchEntityDescription(
         key="inverter_consumption_limit_active",
         translation_key="inverter_consumption_limit_active",
+        entity_registry_enabled_default=False,
         device_class=SwitchDeviceClass.SWITCH,
         is_on_fn=lambda d: bool(_get(d, "inverter_control", "consumption_active")),
         set_fn=_set_consumption_active,
@@ -58,6 +59,7 @@ SWITCHES: tuple[EebusSwitchEntityDescription, ...] = (
     EebusSwitchEntityDescription(
         key="inverter_production_limit_active",
         translation_key="inverter_production_limit_active",
+        entity_registry_enabled_default=False,
         device_class=SwitchDeviceClass.SWITCH,
         is_on_fn=lambda d: bool(_get(d, "inverter_control", "production_active")),
         set_fn=_set_production_active,

@@ -130,6 +130,7 @@ NUMBERS: tuple[EebusNumberEntityDescription, ...] = (
     EebusNumberEntityDescription(
         key="inverter_consumption_limit",
         translation_key="inverter_consumption_limit",
+        entity_registry_enabled_default=False,
         device_class=NumberDeviceClass.POWER,
         native_unit_of_measurement=UnitOfPower.WATT,
         native_min_value=0,
@@ -143,6 +144,7 @@ NUMBERS: tuple[EebusNumberEntityDescription, ...] = (
     EebusNumberEntityDescription(
         key="inverter_production_limit",
         translation_key="inverter_production_limit",
+        entity_registry_enabled_default=False,
         device_class=NumberDeviceClass.POWER,
         native_unit_of_measurement=UnitOfPower.WATT,
         native_min_value=0,

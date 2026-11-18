@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -240,6 +240,27 @@ def _build_phase_sensors() -> list[EebusSensorEntityDescription]:
     return sensors
 
 
+# Bridge-level sensors that mirror the leading inverter. The same values are
+# available on the inverter's own device, so they are disabled by default for
+# new installations (kept for existing dashboards and automations).
+LEADING_DUPLICATES = {
+    "active_power",
+    "energy_consumed",
+    "energy_produced",
+    "frequency",
+    "inverter_power",
+    "inverter_pv_yield_total",
+    "inverter_nominal_peak",
+    "battery_power",
+    "battery_soc",
+    "battery_energy_charged",
+    "battery_energy_discharged",
+    # same value as the "Nominal consumption power" number
+    "consumption_nominal_max",
+}
+_PHASE_PREFIXES = ("power_l", "current_l", "voltage_l")
+
+
 def _site(key: str, field: str, category: EntityCategory | None = None) -> EebusSensorEntityDescription:
     return EebusSensorEntityDescription(
         key=key,
@@ -279,7 +300,12 @@ async def async_setup_entry(
 ) -> None:
     """Set up EEBUS sensors."""
     coordinator: EebusCoordinator = hass.data[DOMAIN][entry.entry_id]
-    descriptions = list(SENSORS) + list(SITE_SENSORS) + _build_phase_sensors()
+    descriptions = [
+        replace(d, entity_registry_enabled_default=False)
+        if d.key in LEADING_DUPLICATES or d.key.startswith(_PHASE_PREFIXES)
+        else d
+        for d in list(SENSORS) + list(SITE_SENSORS) + _build_phase_sensors()
+    ]
     async_add_entities(
         [EebusSensor(coordinator, description) for description in descriptions]
         + [EebusSurplusSensor(coordinator)]
@@ -343,8 +369,13 @@ def _remote(
     unit: str | None = None,
     state_class: SensorStateClass | None = SensorStateClass.MEASUREMENT,
     category: EntityCategory | None = None,
+    unless_use_case: str | None = None,
 ) -> EebusSensorEntityDescription:
-    """Per-device sensor that exists once the device reports ``block``."""
+    """Per-device sensor that exists once the device reports ``block``.
+
+    ``unless_use_case`` suppresses it for devices announcing that use case
+    (e.g. MPC power/energy duplicates the MOI values on inverters).
+    """
     return EebusSensorEntityDescription(
         key=key,
         translation_key=key,
@@ -353,7 +384,8 @@ def _remote(
         state_class=state_class,
         entity_category=category,
         value_fn=lambda d: _get(d, block, field),
-        available_fn=lambda d: d.get(block) is not None,
+        available_fn=lambda d: d.get(block) is not None
+        and (unless_use_case is None or unless_use_case not in (d.get("use_cases") or [])),
     )
 
 
@@ -366,9 +398,9 @@ _DIAG = EntityCategory.DIAGNOSTIC
 # this block"). Each only shows a value once the device actually sends it.
 REMOTE_SENSORS: tuple[EebusSensorEntityDescription, ...] = (
     # MPC - any monitored appliance (inverter AC side, heat pump, wallbox, ...)
-    _remote("remote_power", "mpc", "power_w", device_class=_P, unit=_W),
-    _remote("remote_energy_consumed", "mpc", "energy_consumed_wh", device_class=_E, unit=_WH, state_class=_TI),
-    _remote("remote_energy_produced", "mpc", "energy_produced_wh", device_class=_E, unit=_WH, state_class=_TI),
+    _remote("remote_power", "mpc", "power_w", device_class=_P, unit=_W, unless_use_case="moi"),
+    _remote("remote_energy_consumed", "mpc", "energy_consumed_wh", device_class=_E, unit=_WH, state_class=_TI, unless_use_case="moi"),
+    _remote("remote_energy_produced", "mpc", "energy_produced_wh", device_class=_E, unit=_WH, state_class=_TI, unless_use_case="moi"),
     # PV (VAPD)
     _remote("remote_pv_power", "inverter", "power_w", device_class=_P, unit=_W),
     _remote("remote_pv_yield_total", "inverter", "pv_yield_total_wh", device_class=_E, unit=_WH, state_class=_TI),
@@ -420,8 +452,9 @@ REMOTE_SENSORS: tuple[EebusSensorEntityDescription, ...] = (
         available_fn=lambda d: bool(d.get("category")),
     ),
     # Limits the bridge applies to this device
-    _remote("lpc_applied", "control", "lpc_applied_w", device_class=_P, unit=_W),
-    _remote("lpp_applied", "control", "lpp_applied_w", device_class=_P, unit=_W),
+    # values also on the "... limited" binary sensors (attribute limit_w)
+    replace(_remote("lpc_applied", "control", "lpc_applied_w", device_class=_P, unit=_W), entity_registry_enabled_default=False),
+    replace(_remote("lpp_applied", "control", "lpp_applied_w", device_class=_P, unit=_W), entity_registry_enabled_default=False),
     _remote("lpc_distributed", "control", "distributed_limit_w", device_class=_P, unit=_W, category=_DIAG),
 )
 

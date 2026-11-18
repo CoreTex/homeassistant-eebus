@@ -1,0 +1,104 @@
+configuration:
+  inverter_ski:
+    name: Führender Wechselrichter (SKI)
+    description: >-
+      SKI deines Haupt-Wechselrichters (40 Hex-Zeichen). Er liefert die
+      Wechselrichter-Werte der Bridge und ist Ziel der Wechselrichter-Limits
+      der Bridge. Leer lassen, um den ersten gefundenen Wechselrichter zu nutzen.
+  trusted_skis:
+    name: Vertraute Geräte (SKIs)
+    description: >-
+      SKIs der EEBUS-Geräte, die sich mit der Bridge koppeln dürfen
+      (Wechselrichter, Wallboxen, Wärmepumpen, Steuerbox). Geräte lassen sich
+      auch in Home Assistant über den Schalter „Vertraut“ freigeben.
+  auto_accept_trust:
+    name: Jede Kopplungsanfrage annehmen
+    description: >-
+      Vertraut jedem Gerät, das sich koppeln möchte. Nur während des Koppelns
+      einschalten und danach wieder aus; angenommene Geräte bleiben vertraut.
+  enable_eg_control:
+    name: Geräte steuern (Energy Guard)
+    description: >-
+      Erlaubt der Bridge, Verbrauchs- und Einspeiselimits an Geräte zu senden:
+      Wallboxen und Wärmepumpen dimmen (§14a), Lademodi für LPC-Wallboxen,
+      Wechselrichter-Limits. Für die meisten Steuerfunktionen nötig.
+  distribute_lpc:
+    name: Netzbetreiber-Limit verteilen (§14a)
+    description: >-
+      Begrenzt die Steuerbox des Netzbetreibers den Haushalt, wird das Limit
+      bedarfsgerecht auf die verbundenen Wallboxen und Wärmepumpen verteilt.
+  distribute_lpc_inverters:
+    name: Speicher in §14a-Verteilung einbeziehen
+    description: >-
+      Wechselrichter mit Batterie erhalten ebenfalls einen Anteil (begrenzt das
+      Laden des Speichers aus dem Netz). Aktivieren, wenn der Speicher beim
+      Netzbetreiber nach §14a angemeldet ist.
+  enable_lpc_simulation:
+    name: §14a-Simulation erlauben (Test)
+    description: >-
+      Erlaubt die Aktion „Netzbetreiber-Limit simulieren“, um die §14a-Kette
+      ohne Steuerbox zu testen. Wird verweigert, solange eine echte Steuerbox
+      verbunden oder ein echtes Limit aktiv ist.
+  enable_lpc:
+    name: Verbrauchslimits empfangen (LPC)
+    description: >-
+      Die Bridge nimmt Verbrauchslimits der Steuerbox des Netzbetreibers an
+      (§14a) und zeigt sie in Home Assistant.
+  enable_lpp:
+    name: Einspeiselimits empfangen (LPP)
+    description: Die Bridge nimmt Einspeiselimits der Steuerbox des Netzbetreibers an.
+  auto_approve_limits:
+    name: Limits automatisch annehmen
+    description: >-
+      Eingehende Netzbetreiber-Limits ohne Rückfrage annehmen (empfohlen;
+      §14a-Limits müssen befolgt werden).
+  lpc_nominal_max_w:
+    name: Nennleistung Verbrauch (W)
+    description: >-
+      Maximaler Verbrauch der steuerbaren Geräte, der dem Netzbetreiber
+      gemeldet wird (§14a). 0 = nicht gesetzt.
+  lpp_nominal_max_w:
+    name: Nennleistung Einspeisung (W)
+    description: Maximale Einspeiseleistung, die dem Netzbetreiber gemeldet wird. 0 = nicht gesetzt.
+  enable_mpc:
+    name: Leistungsmessung (MPC)
+    description: Leistung, Energie, Strom und Spannung der Geräte auslesen.
+  enable_inverter:
+    name: Wechselrichter-Daten (MOI, VAPD)
+    description: AC-Werte des Wechselrichters und PV-Daten auslesen.
+  enable_battery:
+    name: Batterie-Daten (MOB, VABD)
+    description: Batterieleistung, Ladezustand, Gesundheit und Energie auslesen.
+  enable_mgcp:
+    name: Netzzähler (MGCP)
+    description: Netzleistung und Energie von Smart Meter oder Gateway auslesen.
+  enable_ev:
+    name: Wallbox und Fahrzeug (EV-Use-Cases)
+    description: >-
+      Fahrzeugstatus, Ladeleistung, Ladezustand und Ladestrom-Steuerung für
+      Wallboxen, die das unterstützen.
+  device_brand:
+    name: Marke gegenüber anderen Geräten
+    description: Name, unter dem die Bridge im EEBUS-Netz erscheint.
+  device_model:
+    name: Modell gegenüber anderen Geräten
+    description: Modell, unter dem die Bridge im EEBUS-Netz erscheint.
+  device_serial:
+    name: Seriennummer gegenüber anderen Geräten
+    description: >-
+      Leer lassen für einen automatischen Wert. Nicht die Seriennummer eines
+      anderen Geräts verwenden.
+  eebus_port:
+    name: EEBUS-Port
+    description: TCP-Port des EEBUS-Servers (SHIP). Nur bei Konflikten ändern.
+  api_port:
+    name: API-Port
+    description: Port der lokalen API für die Home-Assistant-Integration.
+  api_token:
+    name: API-Token
+    description: >-
+      Optionales Passwort für die lokale API. Denselben Token in der
+      Integration eintragen.
+  log_level:
+    name: Log-Level
+    description: "debug oder trace nur zur Fehlersuche verwenden."

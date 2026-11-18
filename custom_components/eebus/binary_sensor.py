@@ -29,20 +29,19 @@ class EebusBinarySensorEntityDescription(BinarySensorEntityDescription):
 
     value_fn: Callable[[dict[str, Any]], bool]
     available_fn: Callable[[dict[str, Any]], bool] = lambda _data: True
+    attrs_fn: Callable[[dict[str, Any]], dict[str, Any]] | None = None
 
 
 BINARY_SENSORS: tuple[EebusBinarySensorEntityDescription, ...] = (
     EebusBinarySensorEntityDescription(
         key="consumption_limit_active",
         translation_key="consumption_limit_active",
-        device_class=BinarySensorDeviceClass.RUNNING,
         value_fn=lambda d: bool(_get(d, "lpc", "limit", "active")),
         available_fn=lambda d: bool(_get(d, "lpc", "supported")),
     ),
     EebusBinarySensorEntityDescription(
         key="production_limit_active",
         translation_key="production_limit_active",
-        device_class=BinarySensorDeviceClass.RUNNING,
         value_fn=lambda d: bool(_get(d, "lpp", "limit", "active")),
         available_fn=lambda d: bool(_get(d, "lpp", "supported")),
     ),
@@ -62,7 +61,6 @@ BINARY_SENSORS: tuple[EebusBinarySensorEntityDescription, ...] = (
     EebusBinarySensorEntityDescription(
         key="lpc_distribution_active",
         translation_key="lpc_distribution_active",
-        device_class=BinarySensorDeviceClass.RUNNING,
         value_fn=lambda d: bool(_get(d, "distribution", "active")),
         available_fn=lambda d: bool(_get(d, "distribution", "enabled")),
     ),
@@ -101,12 +99,20 @@ REMOTE_BINARY_SENSORS: tuple[EebusBinarySensorEntityDescription, ...] = (
         value_fn=lambda d: bool(_get(d, "ev", "sleep_mode")),
         available_fn=lambda d: _get(d, "ev", "sleep_mode") is not None,
     ),
+    # "is a limit in force right now?" - the value is an attribute
     EebusBinarySensorEntityDescription(
         key="lpc_limited",
         translation_key="lpc_limited",
-        device_class=BinarySensorDeviceClass.RUNNING,
         value_fn=lambda d: _get(d, "control", "lpc_applied_w") is not None,
         available_fn=lambda d: bool(_get(d, "control", "lpc_supported")),
+        attrs_fn=lambda d: {"limit_w": _get(d, "control", "lpc_applied_w")},
+    ),
+    EebusBinarySensorEntityDescription(
+        key="lpp_limited",
+        translation_key="lpp_limited",
+        value_fn=lambda d: _get(d, "control", "lpp_applied_w") is not None,
+        available_fn=lambda d: bool(_get(d, "control", "lpp_supported")),
+        attrs_fn=lambda d: {"limit_w": _get(d, "control", "lpp_applied_w")},
     ),
 )
 
@@ -199,3 +205,8 @@ class EebusRemoteBinarySensor(EebusRemoteEntity, BinarySensorEntity):
     @property
     def available(self) -> bool:
         return super().available and self.entity_description.available_fn(self.device_data)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        fn = self.entity_description.attrs_fn
+        return fn(self.device_data) if fn else None
