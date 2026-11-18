@@ -13,6 +13,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import EebusApiClient, EebusApiError
+from .cards import async_register_cards
 from .charging import ChargeController
 from .const import (
     CONF_HOST,
@@ -67,6 +68,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     coordinator.charge_controller.async_start()
+    await async_register_cards(hass)
     async_track_issues(coordinator)
     entry.async_on_unload(coordinator.charge_controller.async_stop)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))

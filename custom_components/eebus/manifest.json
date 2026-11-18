@@ -1,7 +1,13 @@
 {
   "domain": "eebus",
   "name": "EEBUS",
-  "codeowners": ["@CoreTex"],
+  "after_dependencies": [
+    "frontend",
+    "http"
+  ],
+  "codeowners": [
+    "@CoreTex"
+  ],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/CoreTex/homeassistant-eebus",
@@ -9,5 +15,5 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/CoreTex/homeassistant-eebus/issues",
   "requirements": [],
-  "version": "0.4.2-dev"
+  "version": "0.5.0-dev"
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0-dev
+
+- No add-on changes; version aligned with the integration (dashboard cards).
+
 ## 0.4.2-dev
 
 - MOB: energy stored, usable capacity, load cycles, DC voltage and current;

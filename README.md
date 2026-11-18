@@ -136,6 +136,50 @@ device. Enable them in the entity settings if you need them.
 If the bridge finds wallboxes or heat pumps but *Control devices* is off, a
 **repair** in *Settings → Repairs* tells you what to enable.
 
+## Dashboard cards
+
+The integration brings its own dashboard cards – no resource to add. After
+updating, open a dashboard, choose *Add card* and search for **EEBUS**. Every
+card has a visual editor: pick the device, the layout and whether to show a
+history graph.
+
+![EEBUS dashboard cards](docs/cards-dark.png)
+
+| Card | Shows | For |
+| --- | --- | --- |
+| **EEBUS energy flow** (`custom:eebus-energy-flow-card`) | Animated flow between PV/inverter, battery, grid, home, wallbox and heat pump; grid operator limit; PV surplus | the *EEBUS Bridge* device |
+| **EEBUS inverter** (`custom:eebus-inverter-card`) | AC power, PV yield, energy, frequency, limits | inverters |
+| **EEBUS battery** (`custom:eebus-battery-card`) | State of charge as a cell, charging/discharging, stored energy and capacity, cycles, temperature, voltage | inverters with a battery |
+| **EEBUS wallbox** (`custom:eebus-wallbox-card`) | Charge mode switcher, charging power or applied limit, manual power slider, vehicle state of charge, §14a share | wallboxes |
+| **EEBUS heat pump** (`custom:eebus-heat-pump-card`) | Power, energy, §14a dimming | heat pumps |
+| **EEBUS grid meter** (`custom:eebus-grid-card`) | Import/feed-in bar, energy counters, feed-in limitation | grid meters |
+| **EEBUS device** (`custom:eebus-device-card`) | Picks the matching card automatically | any EEBUS device |
+
+Options (all cards):
+
+| Option | Values | Default |
+| --- | --- | --- |
+| `device_id` | the EEBUS device | – |
+| `variant` | `compact` (one line), `standard`, `detailed` (all values) | `standard` |
+| `graph` | show a history graph | `true` |
+| `hours` | hours of history | `24` |
+| `title` | own title | device name |
+| `grid_entity`, `pv_entity` | energy flow only: use your own grid / PV power sensor (positive = import / production), e.g. when no grid meter is connected via EEBUS | – |
+
+Example:
+
+```yaml
+type: custom:eebus-wallbox-card
+device_id: 0123456789abcdef0123456789abcdef
+variant: standard
+graph: true
+hours: 12
+```
+
+Tap a value to open its history. The colours keep one meaning on every card:
+amber for PV, green for the battery, indigo for the grid, cyan for wallboxes,
+red-orange for heat pumps; light and dark themes follow Home Assistant.
+
 ## Wallbox charge modes
 
 | Mode | Behaviour |
@@ -281,6 +325,7 @@ water and room temperature use cases. Heat pumps can be dimmed and monitored.
 What changed in which version: see [CHANGELOG.md](CHANGELOG.md). Highlights
 of the current development line:
 
+- **0.5.0** – dashboard cards for every device type.
 - **0.4.x** – tidy settings with help texts, clear entity names, *Download
   diagnostics* with the raw data of every device.
 - **0.3.x** – device classes, wallbox charge modes with PV surplus, limits and

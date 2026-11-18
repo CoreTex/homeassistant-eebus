@@ -8,6 +8,16 @@ and restart Home Assistant after updating the integration.
 `https://github.com/CoreTex/homeassistant-eebus#dev`, integration via HACS with
 beta versions enabled).
 
+## 0.5.0-dev – 2026-11-18
+
+### New
+- **Dashboard cards**, shipped with the integration (no resource to add) and
+  available under *Add card → EEBUS*, each with a visual editor:
+  energy flow, inverter, battery, wallbox (charge mode switcher, manual power
+  slider), heat pump, grid meter, and an automatic device card. Variants
+  *compact*, *standard* and *detailed*, optional history graph, light and
+  dark theme, English and German.
+
 ## 0.4.2-dev – 2026-11-18
 
 ### New

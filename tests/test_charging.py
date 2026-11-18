@@ -436,3 +436,26 @@ async def test_diagnostics(hass: HomeAssistant) -> None:
         assert "HTTP 404" in result["bridge"]["error"]
         assert result["bridge"]["state"]["service"]["ski"] == BRIDGE
         assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_cards_registered_once(hass: HomeAssistant) -> None:
+    from unittest.mock import MagicMock
+
+    from custom_components.eebus.cards import CARDS_URL, async_register_cards
+
+    # without the http component nothing is registered (and nothing fails)
+    hass.http = None
+    await async_register_cards(hass)
+
+    hass.http = MagicMock()
+    hass.http.async_register_static_paths = AsyncMock()
+    with patch("homeassistant.components.frontend.add_extra_js_url") as add_js:
+        await async_register_cards(hass)
+        await async_register_cards(hass)  # second entry / reload: no duplicate
+    hass.http.async_register_static_paths.assert_awaited_once()
+    config = hass.http.async_register_static_paths.await_args.args[0][0]
+    assert config.url_path == CARDS_URL and config.path.endswith("frontend/eebus-cards.js")
+    import os
+    assert os.path.isfile(config.path)
+    add_js.assert_called_once()
+    assert add_js.call_args.args[1].startswith(f"{CARDS_URL}?v=")
