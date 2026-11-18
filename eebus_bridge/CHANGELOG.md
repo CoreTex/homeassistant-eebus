@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1-dev
+
+- **Diagnostics:** new `GET /api/diagnostics` returns the raw SPINE data the
+  connected devices reported (entities, features, measurement descriptions
+  and values, limits). The integration offers it via *Download diagnostics*
+  (API token redacted) – no trace log needed to see what a device sends.
+- The MOI yield is named *Inverter PV yield total* (verified against the
+  KOSTAL yield counter).
+
 ## 0.4.0-dev
 
 Clean-up release: settings, names and documentation.

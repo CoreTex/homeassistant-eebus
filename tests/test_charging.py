@@ -398,3 +398,32 @@ async def test_ui_cleanup(hass: HomeAssistant) -> None:
         # the numeric "applied" sensors are disabled by default
         assert ent.async_get(eid("sensor", "lpc_applied")).disabled_by is er.RegistryEntryDisabler.INTEGRATION
         assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_diagnostics(hass: HomeAssistant) -> None:
+    from custom_components.eebus.api import EebusApiError
+    from custom_components.eebus.diagnostics import async_get_config_entry_diagnostics
+
+    entry = MockConfigEntry(domain="eebus", unique_id=BRIDGE,
+                            data={"host": "127.0.0.1", "port": 7050, "token": "secret"})
+    entry.add_to_hass(hass)
+    dump = {"version": "0.4.1-dev", "state": {}, "spine": [{"ski": KOSTAL, "entities": []}]}
+    with (
+        patch("custom_components.eebus.api.EebusApiClient.get_state",
+              AsyncMock(side_effect=lambda: copy.deepcopy(STATE))),
+        patch("custom_components.eebus.api.EebusApiClient.listen", _never),
+        patch("custom_components.eebus.api.EebusApiClient.get_diagnostics", AsyncMock(return_value=dump)) as diag,
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        result = await async_get_config_entry_diagnostics(hass, entry)
+        assert result["entry"]["data"]["token"] == "**REDACTED**"
+        assert result["bridge"]["spine"][0]["ski"] == KOSTAL
+
+        # older bridge without the endpoint: state only, no failure
+        diag.side_effect = EebusApiError("HTTP 404")
+        result = await async_get_config_entry_diagnostics(hass, entry)
+        assert "HTTP 404" in result["bridge"]["error"]
+        assert result["bridge"]["state"]["service"]["ski"] == BRIDGE
+        assert await hass.config_entries.async_unload(entry.entry_id)

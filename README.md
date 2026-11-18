@@ -252,7 +252,8 @@ before 0.4 keep their existing IDs.
 | No charge mode / limits on a wallbox | *Control devices* (`enable_eg_control`) on? Integration updated **and** Home Assistant restarted? See *Settings → Repairs* |
 | An inverter is left out of §14a sharing | Enable `distribute_lpc_inverters`; the add-on log names left-out inverters |
 | An action is missing | The integration is older than the add-on – update it in HACS and restart |
-| A value shows "unavailable" | The device does not report it (see the *Device type* attributes); set the add-on `log_level` to `debug` for details |
+| A value shows "unavailable" | The device does not report it (see the *Device type* attributes) |
+| What exactly does a device send? | *Settings → Devices & services → EEBUS → ⋮ → Download diagnostics*: contains the raw EEBUS data of every device (measurement descriptions and values, limits) – no trace log needed. The API token is redacted |
 
 Log lines like `operation is not supported on function electricalConnection…`
 are harmless: a device does not offer an optional read.

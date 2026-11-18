@@ -114,6 +114,10 @@ fork, which is intended to be contributed upstream.
   explains missing settings.
 - **Log lines `operation is not supported on function electricalConnection…`**
   are harmless: a device does not offer an optional read.
+- **What does a device really send?** In Home Assistant: *EEBUS → ⋮ →
+  Download diagnostics*. It contains the raw EEBUS data of every connected
+  device (entities, features, measurement descriptions and values), which is
+  easier than searching a trace log.
 - For details set the log level to `debug`.
 
 ## Local API
@@ -126,6 +130,7 @@ set, send `Authorization: Bearer <token>` (or `?token=` for the WebSocket).
 | `GET /api/health` | `{status, ski, version}` (no token needed) |
 | `GET /api/state` | Full state: `service` (incl. enabled `features`), `connections`, `devices` (per SKI: `category`, `use_cases`, `mpc`, `inverter`, `inverter_ac`, `battery`, `grid`, `ev`, `control`), `site` totals, `distribution` (§14a shares), received `lpc`/`lpp` limits |
 | `GET /api/ws` | WebSocket, pushes the full state on every change |
+| `GET /api/diagnostics` | State plus the raw SPINE data of every connected device (entities, features, latest data per function) |
 | `POST /api/devices/{ski}/lpc` · `/lpp` | `{target_w?, active?, duration_s?}` – stage and/or apply a device limit |
 | `POST /api/devices/{ski}/failsafe` | `{power_w?, duration_s?}` – device failsafe |
 | `POST /api/devices/{ski}/ev_current` | `{current_a}` (A per phase, 0 = pause) or `{release: true}` |

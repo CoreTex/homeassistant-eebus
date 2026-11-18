@@ -37,6 +37,9 @@ type Controller interface {
 	SetDeviceFailsafe(ski string, powerW, durationS *float64) error
 	SetEVCurrent(ski string, currentA *float64) error
 	SimulateGridLimit(valueW float64, active bool, durationS float64) error
+	// SpineDump returns the raw SPINE data of the connected devices; the
+	// concrete type is opaque to the API (it is only serialised).
+	SpineDump() any
 }
 
 // Server is the HTTP/WebSocket frontend.
@@ -82,6 +85,7 @@ func New(addr, token, version string, st *store.Store, ctrl Controller) *Server 
 	mux.HandleFunc("POST /api/devices/{ski}/lpp", s.auth(s.handleDeviceLimit(true)))
 	mux.HandleFunc("POST /api/devices/{ski}/failsafe", s.auth(s.handleDeviceFailsafe))
 	mux.HandleFunc("POST /api/devices/{ski}/ev_current", s.auth(s.handleEVCurrent))
+	mux.HandleFunc("GET /api/diagnostics", s.auth(s.handleDiagnostics))
 	mux.HandleFunc("GET /api/pairing", s.auth(s.handlePairing))
 	mux.HandleFunc("POST /api/pairing/trust", s.auth(s.handleTrust))
 	mux.HandleFunc("POST /api/pairing/forget", s.auth(s.handleForget))
@@ -144,6 +148,16 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) handleState(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, s.store.Snapshot())
+}
+
+// handleDiagnostics returns the state plus everything the connected devices
+// reported over SPINE (for "Download diagnostics" in Home Assistant).
+func (s *Server) handleDiagnostics(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"version": s.version,
+		"state":   s.store.Snapshot(),
+		"spine":   s.ctrl.SpineDump(),
+	})
 }
 
 func (s *Server) handlePairing(w http.ResponseWriter, _ *http.Request) {

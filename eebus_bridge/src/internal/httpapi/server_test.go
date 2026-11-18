@@ -93,6 +93,10 @@ func (s *stubController) SimulateGridLimit(v float64, a bool, _ float64) error {
 	return s.maybeFail("SimulateGridLimit")
 }
 
+func (s *stubController) SpineDump() any {
+	return []map[string]string{{"ski": "abc"}}
+}
+
 func newTestServer(token string) (*httptest.Server, *stubController, *store.Store) {
 	st := store.New()
 	ctrl := &stubController{}
@@ -285,5 +289,33 @@ func TestDeviceEndpoints(t *testing.T) {
 	resp = post(t, ts, "/api/devices/"+ski+"/lpc", "", `{"active": false}`)
 	if resp.StatusCode == http.StatusOK {
 		t.Fatal("controller error must not return 200")
+	}
+}
+
+func TestDiagnosticsEndpoint(t *testing.T) {
+	ts, _, _ := newTestServer("secret")
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/api/diagnostics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("diagnostics must require the token, got %d", resp.StatusCode)
+	}
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/diagnostics", nil)
+	req.Header.Set("Authorization", "Bearer secret")
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var body map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if body["version"] != "test-version" || body["state"] == nil || body["spine"] == nil {
+		t.Errorf("unexpected diagnostics: %v", body)
 	}
 }

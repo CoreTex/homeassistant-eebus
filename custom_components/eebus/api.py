@@ -44,6 +44,10 @@ class EebusApiClient:
         """Return the add-on health document (status, ski, version)."""
         return await self._get("/api/health")
 
+    async def get_diagnostics(self) -> dict[str, Any]:
+        """Return state plus the raw SPINE data of the connected devices."""
+        return await self._get("/api/diagnostics")
+
     async def get_state(self) -> dict[str, Any]:
         """Return the full state snapshot."""
         return await self._get("/api/state")
