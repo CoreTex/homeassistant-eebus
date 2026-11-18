@@ -212,6 +212,7 @@ func (m *Manager) onEVCEM(_ string, device spineapi.DeviceRemoteInterface, entit
 	m.noteDevice(device, ucEVCEM)
 	if event != evcemuc.UseCaseSupportUpdate && isEVEntity(entity) {
 		m.refreshEV(device.Ski(), entity)
+		m.redistributeOnMeasurement()
 	}
 }
 

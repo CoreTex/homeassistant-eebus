@@ -271,6 +271,9 @@ func (m *Manager) onMPC(_ string, device spineapi.DeviceRemoteInterface, entity 
 			apply(&s.MPC)
 		}
 	})
+	if event == mampc.DataUpdatePower {
+		m.redistributeOnMeasurement()
+	}
 }
 
 // --- Battery monitoring (VABD ~ MOB) ---

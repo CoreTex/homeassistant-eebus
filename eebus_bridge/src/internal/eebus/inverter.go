@@ -61,6 +61,10 @@ func (m *Manager) onMOI(_ string, device spineapi.DeviceRemoteInterface, entity 
 			}
 		})
 	})
+	// outside the store update: it reads the store itself
+	if event == moiuc.DataUpdatePower {
+		m.redistributeOnMeasurement()
+	}
 }
 
 func negate(v []float64) []float64 {

@@ -41,6 +41,9 @@ type Config struct {
 	// operator's control box) among the controllable wallboxes and heat pumps.
 	// Requires enable_lpc, plus enable_eg_control and/or enable_ev.
 	DistributeLPC bool `json:"distribute_lpc"`
+	// DistributeLPCInverters also gives inverters with LPC (battery charging
+	// from the grid) a share, for storage registered under §14a.
+	DistributeLPCInverters bool `json:"distribute_lpc_inverters"`
 
 	// EnableLPCSimulation allows simulating an incoming §14a limit from Home
 	// Assistant to test the whole chain without a control box.

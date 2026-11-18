@@ -1,6 +1,7 @@
 package eebus
 
 import (
+	"math"
 	"testing"
 
 	"github.com/CoreTex/homeassistant-eebus/eebus_bridge/internal/config"
@@ -143,20 +144,105 @@ func TestPlanDistribution(t *testing.T) {
 	lpc := map[string]bool{skiInverter: true, skiWallbox1: true, hp: true}
 	opev := map[string]bool{skiWallbox2: true}
 
-	consumers, share := planDistribution(s, lpc, opev)
-	if len(consumers) != 2 || share != 4200 {
-		t.Fatalf("want 2 consumers à 4200 W (inverter excluded, offline heat pump skipped), got %+v share %v", consumers, share)
+	consumers := planDistribution(s, lpc, opev, false)
+	if len(consumers) != 2 {
+		t.Fatalf("want 2 consumers (inverter excluded, offline heat pump skipped), got %+v", consumers)
 	}
-	if consumers[0].SKI != skiWallbox1 || !consumers[0].ViaLPC {
-		t.Errorf("wallbox 1 should be limited via LPC: %+v", consumers[0])
+	if consumers[0].SKI != skiWallbox1 || !consumers[0].ViaLPC || consumers[0].ShareW != 4200 {
+		t.Errorf("wallbox 1 should get 4200 W via LPC: %+v", consumers[0])
 	}
-	if consumers[1].SKI != skiWallbox2 || consumers[1].ViaLPC || consumers[1].Phases != 1 {
-		t.Errorf("wallbox 2 should be capped via OPEV on 1 phase: %+v", consumers[1])
+	if consumers[1].SKI != skiWallbox2 || consumers[1].ViaLPC || consumers[1].Phases != 1 || consumers[1].ShareW != 4200 {
+		t.Errorf("wallbox 2 should get 4200 W via OPEV on 1 phase: %+v", consumers[1])
+	}
+
+	// with distribute_lpc_inverters the inverter takes part (via LPC)
+	consumers = planDistribution(s, lpc, opev, true)
+	if len(consumers) != 3 || consumers[0].SKI != skiInverter || !consumers[0].ViaLPC {
+		t.Fatalf("inverter should be included: %+v", consumers)
+	}
+	// an inverter without LPC is never capped via OPEV
+	if c := planDistribution(s, map[string]bool{}, map[string]bool{skiInverter: true}, true); len(c) != 0 {
+		t.Errorf("inverter without LPC must not take part: %+v", c)
 	}
 
 	s.LPC.Limit.Active = false
-	if c, _ := planDistribution(s, lpc, opev); c != nil {
+	if c := planDistribution(s, lpc, opev, true); c != nil {
 		t.Error("no distribution without an active incoming limit")
+	}
+}
+
+func total(cs []distributionConsumer) float64 {
+	sum := 0.0
+	for _, c := range cs {
+		sum += c.ShareW
+	}
+	return sum
+}
+
+func TestAllocateSharesByDemand(t *testing.T) {
+	idle, charging := 0.0, 3000.0
+
+	// Kostal idle (measured 0 W), Kathrein unknown: the battery keeps a ramp
+	// reserve, the wallbox gets the rest
+	cs := []distributionConsumer{{SKI: "kostal", DemandW: &idle}, {SKI: "kathrein"}}
+	allocateShares(4200, cs)
+	if cs[0].ShareW != 500 || cs[1].ShareW != 3700 {
+		t.Errorf("idle battery: got kostal=%v kathrein=%v, want 500/3700", cs[0].ShareW, cs[1].ShareW)
+	}
+
+	// battery charges from the grid with 3 kW: its cap (3000*1.25+500=4250)
+	// exceeds the fair half, so both get an equal share
+	cs = []distributionConsumer{{SKI: "kostal", DemandW: &charging}, {SKI: "kathrein"}}
+	allocateShares(4200, cs)
+	if cs[0].ShareW != 2100 || cs[1].ShareW != 2100 {
+		t.Errorf("busy battery: got %v/%v, want 2100/2100", cs[0].ShareW, cs[1].ShareW)
+	}
+
+	// all measured and idle: the leftover is spread, nothing wasted beyond rounding
+	a, b := 0.0, 0.0
+	cs = []distributionConsumer{{SKI: "a", DemandW: &a}, {SKI: "b", DemandW: &b}}
+	allocateShares(8400, cs)
+	if cs[0].ShareW != 4200 || cs[1].ShareW != 4200 {
+		t.Errorf("all idle: got %v/%v, want 4200/4200", cs[0].ShareW, cs[1].ShareW)
+	}
+
+	// never above the limit, rounded down to 100 W
+	odd := 1234.0
+	cs = []distributionConsumer{{SKI: "a", DemandW: &odd}, {SKI: "b"}, {SKI: "c"}}
+	allocateShares(9999, cs)
+	if total(cs) > 9999 {
+		t.Errorf("shares %v exceed the limit", total(cs))
+	}
+	for _, c := range cs {
+		if math.Mod(c.ShareW, 100) != 0 {
+			t.Errorf("share %v not rounded to 100 W", c.ShareW)
+		}
+	}
+
+	allocateShares(1000, nil) // no consumers: no panic
+}
+
+func TestConsumerDemand(t *testing.T) {
+	ev, mpc, ac := 7000.0, -300.0, -2500.0
+	if d := consumerDemand(store.DeviceData{EV: &store.EVState{PowerW: &ev}}); d == nil || *d != 7000 {
+		t.Errorf("EV power: %v", d)
+	}
+	if d := consumerDemand(store.DeviceData{MPC: &store.MPCState{PowerW: &mpc}}); d == nil || *d != 0 {
+		t.Errorf("producing device has no demand: %v", d)
+	}
+	// MOI: negative AC power = drawing from the grid (charging the battery)
+	if d := consumerDemand(store.DeviceData{InverterAC: &store.InverterACState{PowerW: &ac}}); d == nil || *d != 2500 {
+		t.Errorf("inverter drawing 2.5 kW: %v", d)
+	}
+	if consumerDemand(store.DeviceData{}) != nil {
+		t.Error("no measurement: unknown demand")
+	}
+}
+
+func TestKeepShare(t *testing.T) {
+	old := 3000.0
+	if !keepShare(&old, 3150) || keepShare(&old, 3300) || keepShare(nil, 3000) {
+		t.Error("hysteresis wrong")
 	}
 }
 

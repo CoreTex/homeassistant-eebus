@@ -159,8 +159,10 @@ type DistributionState struct {
 	Active  bool `json:"active"`
 	// LimitW is the incoming total limit, ShareW the per-device share.
 	LimitW  float64  `json:"limit_w"`
-	ShareW  float64  `json:"share_w"`
+	ShareW  float64  `json:"share_w"` // average share per device
 	Devices []string `json:"devices,omitempty"`
+	// Shares is the share per device SKI (by demand, see eebus.allocateShares).
+	Shares map[string]float64 `json:"shares,omitempty"`
 }
 
 // UpdateDevice applies mutate to a copy of the device entry for ski, stores it

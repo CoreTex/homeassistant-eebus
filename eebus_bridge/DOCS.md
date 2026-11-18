@@ -110,10 +110,20 @@ to what it may draw during such an outage.
 ### §14a distribution (`distribute_lpc`)
 
 When enabled and the grid operator's control box sends an active consumption
-limit to the bridge, the bridge shares it **equally** among the connected
-wallboxes and heat pumps: via LPC where supported, otherwise by capping the
-wallbox charging current (OPEV). Inverters are not included. The share is
-removed when the incoming limit ends. This runs inside the add-on, so it keeps
+limit to the bridge, the bridge shares it among the connected wallboxes and
+heat pumps - and, with `distribute_lpc_inverters`, inverters whose battery is
+registered as a §14a device (LPC limits their grid draw, i.e. charging the
+battery from the grid). Devices are limited via LPC where supported, otherwise
+by capping the wallbox charging current (OPEV).
+
+The limit is shared **by demand**: a device whose consumption is measured
+gets about its current demand plus a ramp-up reserve (demand × 1.25 + 500 W);
+devices without a measurement (e.g. a §14a-only wallbox) share the rest. When
+a device draws more, its share grows on the next re-evaluation (at most every
+10 s). The sum of all shares never exceeds the limit. Example with 4200 W: an
+idle battery keeps 500 W and the wallbox gets 3700 W; a battery charging with
+3 kW and the wallbox get 2100 W each. The share is removed when the incoming
+limit ends. This runs inside the add-on, so it keeps
 working while Home Assistant restarts.
 
 An incoming limit with a duration ends automatically when the duration is
@@ -148,6 +158,7 @@ own energy management and no substitute for §14a control by the grid operator.
 | `enable_mgcp` | `true` | Monitoring of the grid connection point (smart meter) |
 | `enable_ev` | `true` | Wallbox/vehicle use cases (EVSECC, EVCC, EVCEM, EVSOC, OPEV) |
 | `distribute_lpc` | `false` | Share an incoming §14a consumption limit among wallboxes and heat pumps |
+| `distribute_lpc_inverters` | `false` | Also give inverters with a battery a share (their grid draw); enable if your storage is registered under §14a |
 | `enable_lpc_simulation` | `false` | Allow simulating an incoming §14a limit from Home Assistant (testing only) |
 | `lpc_nominal_max_w` | `0` | Seed the consumption nominal maximum (W); `0` = leave unset. Relevant for §14a. |
 | `lpp_nominal_max_w` | `0` | Seed the production nominal maximum (W); `0` = leave unset. |

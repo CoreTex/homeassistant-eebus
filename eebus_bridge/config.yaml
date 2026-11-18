@@ -1,5 +1,5 @@
 name: EEBUS Bridge
-version: "0.3.1-dev"
+version: "0.3.2-dev"
 slug: eebus_bridge
 description: >-
   EEBUS (SHIP/SPINE) bridge for Home Assistant. Receives LPC/LPP power limits as
@@ -36,6 +36,7 @@ options:
   enable_mgcp: true
   enable_ev: true
   distribute_lpc: false
+  distribute_lpc_inverters: false
   enable_lpc_simulation: false
   lpc_nominal_max_w: 0
   lpp_nominal_max_w: 0
@@ -60,6 +61,7 @@ schema:
   enable_mgcp: bool?
   enable_ev: bool?
   distribute_lpc: bool?
+  distribute_lpc_inverters: bool?
   enable_lpc_simulation: bool?
   lpc_nominal_max_w: float(0,)
   lpp_nominal_max_w: float(0,)

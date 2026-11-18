@@ -143,7 +143,7 @@
       "site_grid_power": { "name": "Grid power (site)" },
       "site_ev_charging_power": { "name": "Total charging power" },
       "site_heat_pump_power": { "name": "Total heat pump power" },
-      "lpc_distribution_share": { "name": "§14a share per device" },
+      "lpc_distribution_share": { "name": "§14a share per device (average)" },
       "pv_surplus": { "name": "PV surplus" },
       "remote_battery_soh": { "name": "Battery state of health" },
       "remote_battery_temperature": { "name": "Battery temperature" },

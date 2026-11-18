@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/CoreTex/homeassistant-eebus/eebus_bridge/internal/config"
@@ -51,6 +52,8 @@ type Manager struct {
 	evEntities map[string]spineapi.EntityRemoteInterface
 	// distMu serialises the §14a distribution.
 	distMu sync.Mutex
+	// lastDistribution throttles measurement-driven re-distribution (unix ns).
+	lastDistribution atomic.Int64
 	// lpcExpiry ends incoming consumption limits after their duration and
 	// tracks the §14a simulation.
 	lpcExpiry lpcExpiry

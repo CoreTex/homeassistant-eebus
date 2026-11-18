@@ -161,7 +161,7 @@
       "site_grid_power": { "name": "Netzleistung (Standort)" },
       "site_ev_charging_power": { "name": "Ladeleistung gesamt" },
       "site_heat_pump_power": { "name": "Wärmepumpenleistung gesamt" },
-      "lpc_distribution_share": { "name": "§14a-Anteil je Gerät" },
+      "lpc_distribution_share": { "name": "§14a-Anteil je Gerät (Durchschnitt)" },
       "pv_surplus": { "name": "PV-Überschuss" },
       "remote_battery_soh": { "name": "Batterie-Gesundheit" },
       "remote_battery_temperature": { "name": "Batterietemperatur" },

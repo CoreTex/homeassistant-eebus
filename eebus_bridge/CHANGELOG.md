@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.2-dev
+
+- `distribute_lpc_inverters`: inverters with LPC (battery charging from the
+  grid) take part in the §14a share-out, for storage registered under §14a.
+- The §14a limit is now shared **by demand** instead of equally: measured
+  consumers get demand × 1.25 + 500 W, the rest goes to devices without a
+  measurement; re-evaluated on new measurements (at most every 10 s), with
+  100 W steps and 200 W hysteresis. `distribution.shares` lists the share
+  per device.
+
 ## 0.3.1-dev
 
 - Devices are classified right after SPINE discovery, independent of the
