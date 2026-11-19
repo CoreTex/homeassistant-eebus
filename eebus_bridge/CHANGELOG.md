@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1-dev
+
+- Documentation: full option reference and running the bridge in Docker
+  without add-ons.
+
 ## 0.5.0-dev
 
 - No add-on changes; version aligned with the integration (dashboard cards).

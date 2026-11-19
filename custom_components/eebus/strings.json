@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "EEBUS Bridge",
-        "description": "Enter the address of the EEBUS Bridge add-on API. With the bundled add-on (host network) use your Home Assistant host IP.",
+        "description": "Address of the EEBUS Bridge. The bridge is a separate part: install the \"EEBUS Bridge\" add-on (Settings → Add-ons → Add-on store, repository https://github.com/CoreTex/homeassistant-eebus) and start it – HACS installs only this integration. With the add-on use your Home Assistant IP and port 7050; with the bridge in Docker use the IP of the Docker host.",
         "data": {
           "host": "Host",
           "port": "Port",
@@ -12,7 +12,7 @@
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to the EEBUS Bridge API.",
+      "cannot_connect": "No EEBUS Bridge answers at this address. Make sure the \"EEBUS Bridge\" add-on is installed and started (HACS does not install it), then use the IP of your Home Assistant host (not its name) and port 7050. If you set an API token in the add-on, enter it here.",
       "no_ski": "The add-on did not report a SKI yet. Make sure it has finished starting."
     },
     "abort": {

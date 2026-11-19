@@ -31,6 +31,11 @@ this add-on and keeps working while Home Assistant restarts.
 3. Install the **EEBUS integration** via HACS and add it with your **Home
    Assistant host IP** and the API port (default `7050`). The add-on uses the
    host network, so the add-on hostname does not work.
+
+The add-on and the integration are two separate parts: HACS installs only the
+integration, the add-on comes from the add-on store. Without add-on support
+(Home Assistant Container/Core) see
+[Running the bridge without add-ons](#running-the-bridge-without-add-ons-docker).
 4. For control features switch on **Control devices (Energy Guard)** and set
    the **Leading inverter**.
 
@@ -40,15 +45,44 @@ restarts.
 
 ## Options
 
-Every option has a name and help text on the configuration page. Overview:
+Every option has a name and help text on the add-on's configuration page.
+Full reference (the keys are also used in `options.json` when the bridge runs
+in Docker, see below):
 
-| Group | Options |
-| --- | --- |
-| **Devices & pairing** | Leading inverter, trusted devices, accept every pairing request |
-| **Control** | Control devices (Energy Guard), share grid operator limit (§14a), include storage in §14a sharing, allow §14a simulation |
-| **Grid operator limits** | Receive consumption / feed-in limits, accept automatically, nominal consumption / feed-in power |
-| **Monitoring** | Power (MPC), inverter (MOI, VAPD), battery (MOB, VABD), grid meter (MGCP), wallbox and vehicle |
-| **Advanced** | Name, model and serial on the EEBUS network, ports, API token, log level |
+| Option | Default | Description |
+| --- | --- | --- |
+| **Devices & pairing** | | |
+| `inverter_ski` | _(empty)_ | Leading inverter (SKI): SKI of your main inverter (40 hex characters). It feeds the bridge-level inverter values and is the target of the bridge-level inverter limits. Leave empty to use the first inverter found. |
+| `trusted_skis` | `[]` | Trusted devices (SKIs): SKIs of EEBUS devices that may pair with the bridge (inverter, wallboxes, heat pumps, control box). Devices can also be trusted in Home Assistant with the "Trusted" switch of each device. |
+| `auto_accept_trust` | `false` | Accept every pairing request: Trust any device that asks to pair. Switch on only while pairing a new device, then off again; accepted devices stay trusted. |
+| **Control** | | |
+| `enable_eg_control` | `false` | Control devices (Energy Guard): Lets the bridge send consumption/production limits to devices: dim wallboxes and heat pumps (§14a), charge modes of LPC-only wallboxes, inverter limits. Required for most control features. |
+| `distribute_lpc` | `false` | Share grid operator limit (§14a): When the grid operator's control box limits the home, share that limit by demand among the connected wallboxes and heat pumps. |
+| `distribute_lpc_inverters` | `false` | Include storage in §14a sharing: Also give inverters with a battery a share (limits charging the battery from the grid). Enable if your storage is registered with the grid operator under §14a. |
+| `enable_lpc_simulation` | `false` | Allow §14a simulation (testing): Allows the service "Simulate grid operator limit" to test the whole §14a chain without a control box. Refused while a real control box is connected or a real limit is active. |
+| **Grid operator limits** | | |
+| `enable_lpc` | `true` | Receive consumption limits (LPC): The bridge accepts consumption limits from the grid operator's control box (§14a) and shows them in Home Assistant. |
+| `enable_lpp` | `true` | Receive feed-in limits (LPP): The bridge accepts feed-in (production) limits from the grid operator's control box. |
+| `auto_approve_limits` | `true` | Accept limits automatically: Accept incoming grid operator limits without confirmation (recommended; §14a limits must be followed). |
+| `lpc_nominal_max_w` | `0` | Nominal consumption power (W): Maximum consumption of the controllable devices reported to the grid operator (§14a). 0 = not set. |
+| `lpp_nominal_max_w` | `0` | Nominal feed-in power (W): Maximum feed-in power reported to the grid operator. 0 = not set. |
+| **Monitoring** | | |
+| `enable_mpc` | `true` | Power monitoring (MPC): Read power, energy, current and voltage of devices. |
+| `enable_inverter` | `true` | Inverter monitoring (MOI, VAPD): Read inverter AC values and PV data. |
+| `enable_battery` | `true` | Battery monitoring (MOB, VABD): Read battery power, state of charge, health and energy. |
+| `enable_mgcp` | `true` | Grid meter monitoring (MGCP): Read grid power and energy from a smart meter or gateway. |
+| `enable_ev` | `true` | Wallbox and vehicle (EV use cases): Vehicle state, charging power, state of charge and charging-current control for wallboxes that support it. |
+| **Advanced** | | |
+| `device_brand` | `HomeAssistant` | Brand shown to other devices: Name the bridge uses on the EEBUS network. |
+| `device_model` | `EEBUS-Bridge` | Model shown to other devices: Model the bridge uses on the EEBUS network. |
+| `device_serial` | _(empty)_ | Serial number shown to other devices: Leave empty for an automatic value. Do not use the serial number of another device. |
+| `eebus_port` | `4715` | EEBUS port: TCP port of the EEBUS (SHIP) server. Change only on conflicts. |
+| `api_port` | `7050` | API port: Port of the local API used by the Home Assistant integration. |
+| `api_token` | _(empty)_ | API token: Optional password for the local API. Enter the same token in the integration. |
+| `log_level` | `info` | Log level: Use debug or trace only for troubleshooting. |
+
+SKIs are 40 hexadecimal characters. Options that are not set keep their
+default.
 
 ## Device classes
 
@@ -97,6 +131,86 @@ as if the control box had sent it and runs through the whole chain. It is
 refused while a real control box is connected or a real limit is active, so
 it can never override or lift a genuine limit. A simulated or self-set limit
 is no substitute for §14a control by the grid operator.
+
+## Running the bridge without add-ons (Docker)
+
+Add-ons need Home Assistant OS or Supervised. With **Home Assistant Container
+or Core**, run the bridge as its own Docker container on a machine in the same
+network as your EEBUS devices – ideally the one that runs Home Assistant. The
+image is the same one the add-on uses:
+
+- `ghcr.io/coretex/amd64-addon-eebus_bridge:<version>` (Intel/AMD)
+- `ghcr.io/coretex/aarch64-addon-eebus_bridge:<version>` (ARM 64-bit, e.g.
+  Raspberry Pi 4/5)
+
+Use a fixed version (e.g. `0.5.1-dev`) and update it together with the
+integration; `latest` always points to the newest build, including
+pre-releases.
+
+1. Create a data folder with an `options.json` (all keys in the table above;
+   missing keys use their default):
+
+   ```json
+   {
+     "inverter_ski": "",
+     "trusted_skis": [],
+     "auto_accept_trust": false,
+     "enable_eg_control": false,
+     "distribute_lpc": false,
+     "distribute_lpc_inverters": false,
+     "enable_lpc_simulation": false,
+     "enable_lpc": true,
+     "enable_lpp": true,
+     "auto_approve_limits": true,
+     "lpc_nominal_max_w": 0,
+     "lpp_nominal_max_w": 0,
+     "enable_mpc": true,
+     "enable_inverter": true,
+     "enable_battery": true,
+     "enable_mgcp": true,
+     "enable_ev": true,
+     "device_brand": "HomeAssistant",
+     "device_model": "EEBUS-Bridge",
+     "device_serial": "",
+     "eebus_port": 4715,
+     "api_port": 7050,
+     "api_token": "",
+     "log_level": "info"
+   }
+   ```
+
+2. Start the container with **host networking** (EEBUS needs mDNS and direct
+   connections) and the data folder mounted to `/data`, where the certificate
+   is stored – keep this folder, otherwise the bridge gets a new SKI and all
+   devices have to be paired again:
+
+   ```bash
+   docker run -d --name eebus-bridge --restart unless-stopped \
+     --network host \
+     -v /opt/eebus-bridge:/data \
+     ghcr.io/coretex/amd64-addon-eebus_bridge:0.5.1-dev
+   ```
+
+   or with Docker Compose:
+
+   ```yaml
+   services:
+     eebus-bridge:
+       image: ghcr.io/coretex/amd64-addon-eebus_bridge:0.5.1-dev
+       container_name: eebus-bridge
+       network_mode: host
+       restart: unless-stopped
+       volumes:
+         - /opt/eebus-bridge:/data
+   ```
+
+3. The log (`docker logs eebus-bridge`) shows the **Local SKI**. Pair your
+   devices as described above.
+4. Add the EEBUS integration with the IP of the Docker host and port `7050`.
+
+After changing `options.json`, restart the container. Docker Desktop on
+Windows and macOS does not support host networking the same way; use a Linux
+host for the bridge.
 
 ## Supported EEBUS use cases
 

@@ -459,3 +459,39 @@ async def test_cards_registered_once(hass: HomeAssistant) -> None:
     assert os.path.isfile(config.path)
     add_js.assert_called_once()
     assert add_js.call_args.args[1].startswith(f"{CARDS_URL}?v=")
+
+
+async def test_config_flow_explains_missing_bridge(hass: HomeAssistant) -> None:
+    from homeassistant import config_entries
+    from homeassistant.data_entry_flow import FlowResultType
+
+    from custom_components.eebus.api import EebusApiError
+
+    result = await hass.config_entries.flow.async_init("eebus", context={"source": config_entries.SOURCE_USER})
+    assert result["type"] is FlowResultType.FORM
+    with patch("custom_components.eebus.api.EebusApiClient.health",
+               AsyncMock(side_effect=EebusApiError("connection refused"))):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"host": "192.0.2.10", "port": 7050, "token": ""})
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "cannot_connect"}
+
+    with (
+        patch("custom_components.eebus.api.EebusApiClient.health", AsyncMock(return_value={"ski": BRIDGE})),
+        patch("custom_components.eebus.async_setup_entry", AsyncMock(return_value=True)),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"host": "192.0.2.10", "port": 7050, "token": ""})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["result"].unique_id == BRIDGE
+
+
+def test_setup_texts_mention_the_addon() -> None:
+    import json
+    from pathlib import Path
+
+    base = Path(__file__).resolve().parents[1] / "custom_components" / "eebus"
+    for name in ("strings.json", "translations/en.json", "translations/de.json"):
+        data = json.loads((base / name).read_text())
+        assert "EEBUS Bridge" in data["config"]["error"]["cannot_connect"], name
+        assert "HACS" in data["config"]["step"]["user"]["description"], name

@@ -11,6 +11,14 @@ The project has two parts that work together:
 | **EEBUS Bridge** (`eebus_bridge/`) | Home Assistant **add-on** that speaks EEBUS (SHIP/SPINE) on your network, based on [`enbility/eebus-go`](https://github.com/enbility/eebus-go) | Add-on store (repository URL below) |
 | **EEBUS integration** (`custom_components/eebus/`) | Turns the bridge into Home Assistant devices, entities and actions | HACS |
 
+> **You need both parts.** HACS installs only the integration – it cannot
+> install add-ons. Add the add-on repository in the add-on store as well (or,
+> without add-on support, run the bridge in Docker – see
+> [below](#home-assistant-container-or-core-docker)).
+>
+> [![Add the add-on repository](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FCoreTex%2Fhomeassistant-eebus)
+> [![Open the integration in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=CoreTex&repository=homeassistant-eebus&category=integration)
+
 Nothing in it is specific to a vendor or network: devices are paired and
 classified at runtime.
 
@@ -57,8 +65,8 @@ PV surplus), where any grid power sensor can be used.
 ## Quick start
 
 1. **Add-on:** *Settings → Add-ons → Add-on store → ⋮ → Repositories*, add
-   `https://github.com/CoreTex/homeassistant-eebus`, install **EEBUS Bridge**
-   and start it.
+   `https://github.com/CoreTex/homeassistant-eebus` (or use the button above),
+   install **EEBUS Bridge** and start it.
 2. **Pair your devices:** the add-on log shows the bridge's **Local SKI**.
    Enter it in the EEBUS settings of each device (inverter, wallbox, ...) and
    add the device's SKI to the add-on option *Trusted devices*. Alternatively
@@ -75,6 +83,23 @@ PV surplus), where any grid power sensor can be used.
 
 > Add-on and integration are updated separately. After updating the
 > integration in HACS, **restart Home Assistant**.
+
+### Home Assistant Container or Core (Docker)
+
+Add-ons need Home Assistant OS or Supervised. Otherwise run the bridge as a
+Docker container with host networking on a Linux machine in the same network
+as your EEBUS devices – same image as the add-on, configured with an
+`options.json`:
+
+```bash
+docker run -d --name eebus-bridge --restart unless-stopped --network host \
+  -v /opt/eebus-bridge:/data ghcr.io/coretex/amd64-addon-eebus_bridge:0.5.1-dev
+```
+
+Use `aarch64` instead of `amd64` on ARM (e.g. Raspberry Pi). Details, a
+complete `options.json` and a Docker Compose example:
+[add-on documentation](eebus_bridge/DOCS.md#running-the-bridge-without-add-ons-docker).
+Then continue with steps 2–5.
 
 ## Configuration
 
@@ -292,6 +317,7 @@ before 0.4 keep their existing IDs.
 
 | Symptom | Check |
 | --- | --- |
+| The integration cannot connect | The EEBUS Bridge add-on is installed and started? HACS installs only the integration. Use the IP of the Home Assistant host (or Docker host) and port `7050` |
 | A device reports "pairing failed" | Its SKI must be trusted (option or *Trusted* switch) **and** the bridge's SKI must be entered on the device |
 | No charge mode / limits on a wallbox | *Control devices* (`enable_eg_control`) on? Integration updated **and** Home Assistant restarted? See *Settings → Repairs* |
 | An inverter is left out of §14a sharing | Enable `distribute_lpc_inverters`; the add-on log names left-out inverters |

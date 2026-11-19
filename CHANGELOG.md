@@ -8,6 +8,22 @@ and restart Home Assistant after updating the integration.
 `https://github.com/CoreTex/homeassistant-eebus#dev`, integration via HACS with
 beta versions enabled).
 
+## 0.5.1-dev – 2026-11-19
+
+### Documentation
+- **Running the bridge without add-ons** (Home Assistant Container/Core):
+  Docker and Docker Compose examples, complete `options.json`, image names per
+  architecture (#2).
+- The **full option reference** (key, default, description) is back in the
+  add-on documentation (#3).
+- README: notice that add-on and integration are two separate parts, with
+  one-click buttons to add the add-on repository and to open the integration
+  in HACS.
+
+### Changed
+- Setting up the integration explains that the EEBUS Bridge is a separate
+  add-on, also when no bridge answers at the given address.
+
 ## 0.5.0-dev – 2026-11-18
 
 ### New
