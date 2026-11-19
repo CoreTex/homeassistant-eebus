@@ -24,6 +24,7 @@ const (
 	ucEVCEM     = "evcem"
 	ucEVSOC     = "evsoc"
 	ucOPEV      = "opev"
+	ucOHPCF     = "ohpcf"      // heat pump offers optional consumption (PV surplus)
 	ucLPCSource = "lpc_source" // device sends consumption limits to us (control box)
 	ucLPPSource = "lpp_source" // device sends production limits to us
 )

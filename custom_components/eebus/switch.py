@@ -16,6 +16,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 
 from .api import EebusApiClient, EebusApiError
 from .const import DOMAIN
@@ -74,6 +75,8 @@ def _remote_factory(coord: EebusCoordinator, ski: str, dev: dict[str, Any]) -> l
         entities.append(EebusRemoteLimitSwitch(coord, ski, production=False))
     if _get(dev, "control", "lpp_supported"):
         entities.append(EebusRemoteLimitSwitch(coord, ski, production=True))
+    if _get(dev, "flex", "supported"):
+        entities.append(EebusFlexSurplusSwitch(coord, ski))
     return entities
 
 
@@ -197,6 +200,41 @@ class EebusRemoteLimitSwitch(EebusRemoteEntity, SwitchEntity):
         except EebusApiError as err:
             raise HomeAssistantError(str(err)) from err
         await self.coordinator.async_request_refresh()
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self._apply(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self._apply(False)
+
+
+class EebusFlexSurplusSwitch(EebusRemoteEntity, SwitchEntity, RestoreEntity):
+    """Start the heat pump's optional consumption on PV surplus (OHPCF).
+
+    Uses the grid sensor, reserve and delays of PV-surplus charging. The
+    setting is kept by Home Assistant (restored after a restart).
+    """
+
+    _attr_translation_key = "flex_pv_surplus"
+
+    def __init__(self, coordinator: EebusCoordinator, ski: str) -> None:
+        super().__init__(coordinator, ski, "flex_pv_surplus")
+        self._on = False
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        if (last := await self.async_get_last_state()) is not None:
+            self._on = last.state == "on"
+        await self.coordinator.flex_controller.async_set_enabled(self._ski, self._on, run=False)
+
+    @property
+    def is_on(self) -> bool:
+        return self._on
+
+    async def _apply(self, on: bool) -> None:
+        self._on = on
+        await self.coordinator.flex_controller.async_set_enabled(self._ski, on)
+        self.async_write_ha_state()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         await self._apply(True)

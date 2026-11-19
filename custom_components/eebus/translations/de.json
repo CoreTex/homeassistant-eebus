@@ -196,7 +196,22 @@
       "remote_battery_capacity": { "name": "Batterie nutzbare Kapazität" },
       "remote_battery_cycles": { "name": "Batterie-Ladezyklen" },
       "remote_battery_voltage": { "name": "Batteriespannung" },
-      "remote_battery_current": { "name": "Batteriestrom" }
+      "remote_battery_current": { "name": "Batteriestrom" },
+      "flex_state": {
+        "name": "Optionaler Verbrauch",
+        "state": {
+          "none": "Kein Angebot",
+          "available": "Verfügbar",
+          "scheduled": "Geplant",
+          "running": "Läuft",
+          "paused": "Pausiert",
+          "completed": "Abgeschlossen",
+          "stopped": "Abgebrochen"
+        }
+      },
+      "flex_power": { "name": "Leistung optionaler Verbrauch" },
+      "flex_max_power": { "name": "Max. Leistung optionaler Verbrauch" },
+      "remote_energy_calculated": { "name": "Verbrauchte Energie (berechnet)" }
     },
     "binary_sensor": {
       "consumption_limit_active": { "name": "Netzbetreiber-Limit Verbrauch aktiv" },
@@ -231,7 +246,8 @@
       "inverter_production_limit_active": { "name": "Führender WR Einspeiselimit aktiv" },
       "remote_trusted": { "name": "Vertraut" },
       "lpc_active": { "name": "Verbrauchslimit aktiv" },
-      "lpp_active": { "name": "Einspeiselimit aktiv" }
+      "lpp_active": { "name": "Einspeiselimit aktiv" },
+      "flex_pv_surplus": { "name": "PV-Überschuss nutzen" }
     },
     "select": {
       "charge_mode": {
@@ -245,6 +261,12 @@
           "manual": "Manuelle Leistung"
         }
       }
+    },
+    "button": {
+      "flex_start": { "name": "Optionalen Verbrauch starten" },
+      "flex_pause": { "name": "Optionalen Verbrauch pausieren" },
+      "flex_resume": { "name": "Optionalen Verbrauch fortsetzen" },
+      "flex_stop": { "name": "Optionalen Verbrauch abbrechen" }
     }
   },
   "issues": {

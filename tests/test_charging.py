@@ -428,13 +428,15 @@ async def test_diagnostics(hass: HomeAssistant) -> None:
 
         result = await async_get_config_entry_diagnostics(hass, entry)
         assert result["entry"]["data"]["token"] == "**REDACTED**"
-        assert result["bridge"]["spine"][0]["ski"] == KOSTAL
+        # SKIs are replaced by placeholders, the token is removed
+        assert result["bridge"]["spine"][0]["ski"].startswith("device_")
+        assert KOSTAL not in repr(result) and "secret" not in repr(result)
 
         # older bridge without the endpoint: state only, no failure
         diag.side_effect = EebusApiError("HTTP 404")
         result = await async_get_config_entry_diagnostics(hass, entry)
         assert "HTTP 404" in result["bridge"]["error"]
-        assert result["bridge"]["state"]["service"]["ski"] == BRIDGE
+        assert result["bridge"]["state"]["service"]["ski"] == "bridge"
         assert await hass.config_entries.async_unload(entry.entry_id)
 
 

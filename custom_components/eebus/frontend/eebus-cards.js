@@ -9,7 +9,7 @@
  * any entity IDs and languages. No external libraries.
  */
 
-const VERSION = "0.5.1-dev";
+const VERSION = "0.6.0-dev";
 
 // --- semantic colours (one meaning each, readable on light and dark themes)
 const C = {
@@ -32,6 +32,10 @@ const STRINGS = {
     temperature: "Temperature", voltage: "Voltage", health: "Health",
     surplus: "PV surplus", limit_active: "Grid operator limit", limit_to: "limited to",
     simulation: "simulation", share: "§14a share", limited: "Limited", limited_to: "Limited to",
+    flex: "Optional consumption", use_surplus: "Use PV surplus", flex_wants: "wants",
+    flex_actions: { start: "Start", pause: "Pause", resume: "Resume", stop: "Stop" },
+    flex_states: { none: "No offer", available: "Available", scheduled: "Scheduled", running: "Running",
+      paused: "Paused", completed: "Completed", stopped: "Stopped" },
     limit: "Consumption limit", feed_in_limit: "Feed-in limit", not_limited: "Not limited",
     mode: "Charge mode", manual_power: "Manual power", plugged: "Vehicle plugged in",
     unplugged: "No vehicle", vehicle_soc: "Vehicle", power: "Power", energy: "Energy",
@@ -54,6 +58,10 @@ const STRINGS = {
     temperature: "Temperatur", voltage: "Spannung", health: "Gesundheit",
     surplus: "PV-Überschuss", limit_active: "Netzbetreiber-Limit", limit_to: "begrenzt auf",
     simulation: "Simulation", share: "§14a-Anteil", limited: "Begrenzt", limited_to: "Begrenzt auf",
+    flex: "Optionaler Verbrauch", use_surplus: "PV-Überschuss nutzen", flex_wants: "möchte",
+    flex_actions: { start: "Starten", pause: "Pausieren", resume: "Fortsetzen", stop: "Abbrechen" },
+    flex_states: { none: "Kein Angebot", available: "Verfügbar", scheduled: "Geplant", running: "Läuft",
+      paused: "Pausiert", completed: "Abgeschlossen", stopped: "Abgebrochen" },
     limit: "Verbrauchslimit", feed_in_limit: "Einspeiselimit", not_limited: "Nicht begrenzt",
     mode: "Lademodus", manual_power: "Manuelle Leistung", plugged: "Fahrzeug eingesteckt",
     unplugged: "Kein Fahrzeug", vehicle_soc: "Fahrzeug", power: "Leistung", energy: "Energie",
@@ -95,6 +103,14 @@ function num(hass, entityId) {
   if (!st || UNAVAILABLE.has(st.state)) return null;
   const v = Number(st.state);
   return Number.isFinite(v) ? v : null;
+}
+
+/** Energy state in Wh, whatever unit the sensor is displayed in. */
+function wh(hass, entityId) {
+  const v = num(hass, entityId);
+  if (v === null) return null;
+  const unit = hass.states[entityId].attributes.unit_of_measurement;
+  return unit === "kWh" ? v * 1000 : unit === "MWh" ? v * 1e6 : v;
 }
 
 function str(hass, entityId) {
@@ -735,10 +751,58 @@ class EebusWallboxCard extends EebusBaseCard {
 }
 
 // --- heat pump ----------------------------------------------------------------------------------
+const FLEX_ACTIONS = ["start", "pause", "resume", "stop"];
+
 class EebusHeatPumpCard extends EebusBaseCard {
   static cardType = "heat_pump";
   static icon = "mdi:heat-pump-outline";
   static color = C.heatpump;
+  static extraStyle = `
+    .flex { margin-top:14px; padding:10px 12px; border-radius:12px;
+      background: color-mix(in srgb, ${C.heatpump} 10%, transparent); }
+    .flex .row { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+    .flex .label { font-size:13px; color: var(--secondary-text-color); }
+    .flex .state { font-weight:500; }
+    .flex .actions { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+    .flex button { all:unset; cursor:pointer; padding:4px 12px; border-radius:14px; font-size:13px;
+      border:1px solid ${C.heatpump}; color: var(--primary-text-color); }
+    .flex button:focus-visible, .flex input:focus-visible { outline: 2px solid ${C.heatpump}; outline-offset: 2px; }
+    .flex label { display:flex; align-items:center; gap:6px; font-size:13px; cursor:pointer; }
+    .flex input { accent-color: ${C.heatpump}; }
+  `;
+
+  flexBlock(t) {
+    const h = this._hass, e = this.entities;
+    if (!e.flex_state || !h.states[e.flex_state]) return "";
+    const st = h.states[e.flex_state];
+    const want = st.attributes.power_w;
+    const actions = FLEX_ACTIONS.filter((a) => e[`flex_${a}`] && h.states[e[`flex_${a}`]]
+      && h.states[e[`flex_${a}`]].state !== "unavailable");
+    const surplus = e.flex_pv_surplus && h.states[e.flex_pv_surplus]
+      ? `<label><input type="checkbox" class="surplus" ${isOn(h, e.flex_pv_surplus) ? "checked" : ""}>${t.use_surplus}</label>` : "";
+    return `<div class="flex"><div class="row">
+        <span><span class="label">${t.flex}</span><br><span class="state clickable" data-entity="${e.flex_state}">${t.flex_states[st.state] || st.state}${want ? ` · ${t.flex_wants} ${power(h, want)}` : ""}</span></span>
+        ${surplus}</div>
+      ${actions.length ? `<div class="actions">${actions.map((a) => `<button data-action="${a}">${t.flex_actions[a]}</button>`).join("")}</div>` : ""}
+    </div>`;
+  }
+
+  afterRender() {
+    const e = this.entities;
+    this.shadowRoot.querySelectorAll(".flex button[data-action]").forEach((b) => {
+      b.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        this._hass.callService("button", "press", { entity_id: e[`flex_${b.dataset.action}`] });
+      });
+    });
+    const box = this.shadowRoot.querySelector(".flex input.surplus");
+    if (box) {
+      box.addEventListener("click", (ev) => ev.stopPropagation());
+      box.addEventListener("change", () => {
+        this._hass.callService("switch", box.checked ? "turn_on" : "turn_off", { entity_id: e.flex_pv_surplus });
+      });
+    }
+  }
 
   historyEntities() {
     return [this.entities.remote_power];
@@ -753,12 +817,13 @@ class EebusHeatPumpCard extends EebusBaseCard {
       return `<div class="compact clickable" data-entity="${e.remote_power}">${this.header(t, name, t.heatpump)}<div class="big">${power(h, p)}</div></div>`;
     }
     const stats = [];
-    if (num(h, e.remote_energy_consumed) !== null) stats.push(this.stat(t.consumed, energy(h, num(h, e.remote_energy_consumed)), e.remote_energy_consumed));
+    const energyId = wh(h, e.remote_energy_consumed) !== null ? e.remote_energy_consumed : e.remote_energy_calculated;
+    if (wh(h, energyId) !== null) stats.push(this.stat(t.consumed, energy(h, wh(h, energyId)), energyId));
     if (e.lpc_limited) stats.push(this.stat(t.limit, isOn(h, e.lpc_limited) ? power(h, h.states[e.lpc_limited].attributes.limit_w) : t.not_limited, e.lpc_limited));
     if (num(h, e.lpc_distributed) !== null) stats.push(this.stat(t.share, power(h, num(h, e.lpc_distributed)), e.lpc_distributed));
     return `${this.header(t, name, t.heatpump, this.connectedChip(t))}
       <div class="hero clickable" data-entity="${e.remote_power}"><span class="big">${power(h, p)}</span><span class="muted">${t.power}</span></div>
-      ${this.limitBanner(t)}<div class="stats">${stats.join("")}</div>
+      ${this.limitBanner(t)}${this.flexBlock(t)}<div class="stats">${stats.join("")}</div>
       ${this.graph(t, e.remote_power, C.heatpump)}`;
   }
 }

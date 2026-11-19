@@ -150,6 +150,12 @@ class EebusApiClient:
         else:
             await self._post(f"/api/devices/{ski}/ev_current", {"current_a": current_a})
 
+    async def set_flex(self, ski: str, action: str, start_in_s: float = 0) -> None:
+        """Start, pause, resume or stop a heat pump's optional consumption."""
+        await self._post(
+            f"/api/devices/{ski}/flex", {"action": action, "start_in_s": start_in_s}
+        )
+
     async def trust(self, ski: str) -> None:
         await self._post("/api/pairing/trust", {"ski": ski})
 

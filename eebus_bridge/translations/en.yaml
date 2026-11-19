@@ -21,7 +21,8 @@ configuration:
     description: >-
       Lets the bridge send consumption/production limits to devices: dim
       wallboxes and heat pumps (§14a), charge modes of LPC-only wallboxes,
-      inverter limits. Required for most control features.
+      inverter limits, and start heat pumps that offer optional consumption
+      (OHPCF, e.g. on PV surplus). Required for most control features.
   distribute_lpc:
     name: Share grid operator limit (§14a)
     description: >-

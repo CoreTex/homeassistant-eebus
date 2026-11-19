@@ -58,6 +58,7 @@ func (m *Manager) forgetEntities(ski string) {
 		delete(ents, ski)
 	}
 	delete(m.evEntities, ski)
+	delete(m.flexEntities, ski)
 	m.mu.Unlock()
 }
 

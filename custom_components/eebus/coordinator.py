@@ -41,6 +41,7 @@ class EebusCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.bridge_device_id: str | None = None
         # Wallbox charge modes (set during entry setup, see charging.py).
         self.charge_controller: Any = None
+        self.flex_controller: Any = None
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:

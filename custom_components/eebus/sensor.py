@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Any
 
 from homeassistant.components.sensor import (
+    RestoreSensor,
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
@@ -24,7 +26,7 @@ from homeassistant.const import (
     UnitOfTemperature,
     UnitOfTime,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
@@ -317,7 +319,8 @@ async def async_setup_entry(
             EebusRemoteSensor(coord, ski, description)
             for description in REMOTE_SENSORS
             if description.available_fn(dev)
-        ],
+        ]
+        + ([EebusCalculatedEnergySensor(coord, ski)] if needs_calculated_energy(dev) else []),
     )
 
 
@@ -357,6 +360,8 @@ def _ev_state(dev: dict[str, Any]) -> str | None:
     return value.lower() if isinstance(value, str) and value else None
 
 
+FLEX_STATES = ["none", "available", "scheduled", "running", "paused", "completed", "stopped"]
+
 EV_CHARGE_STATES = ["unknown", "unplugged", "error", "paused", "active", "finished"]
 
 
@@ -370,12 +375,26 @@ def _remote(
     state_class: SensorStateClass | None = SensorStateClass.MEASUREMENT,
     category: EntityCategory | None = None,
     unless_use_case: str | None = None,
+    when_block: bool = False,
 ) -> EebusSensorEntityDescription:
-    """Per-device sensor that exists once the device reports ``block``.
+    """Per-device sensor, created once the device reports a value for it.
+
+    Devices often announce measurements they never fill (e.g. a heat pump
+    announcing phase values and energy counters, but only sending its
+    power), so the entity is only created once a value arrives. With
+    ``when_block`` it already exists once the device reports ``block``.
 
     ``unless_use_case`` suppresses it for devices announcing that use case
     (e.g. MPC power/energy duplicates the MOI values on inverters).
     """
+
+    def _create(d: dict[str, Any]) -> bool:
+        if d.get(block) is None:
+            return False
+        if unless_use_case is not None and unless_use_case in (d.get("use_cases") or []):
+            return False
+        return when_block or _get(d, block, field) is not None
+
     return EebusSensorEntityDescription(
         key=key,
         translation_key=key,
@@ -384,8 +403,7 @@ def _remote(
         state_class=state_class,
         entity_category=category,
         value_fn=lambda d: _get(d, block, field),
-        available_fn=lambda d: d.get(block) is not None
-        and (unless_use_case is None or unless_use_case not in (d.get("use_cases") or [])),
+        available_fn=_create,
     )
 
 
@@ -458,9 +476,20 @@ REMOTE_SENSORS: tuple[EebusSensorEntityDescription, ...] = (
     ),
     # Limits the bridge applies to this device
     # values also on the "... limited" binary sensors (attribute limit_w)
-    replace(_remote("lpc_applied", "control", "lpc_applied_w", device_class=_P, unit=_W), entity_registry_enabled_default=False),
-    replace(_remote("lpp_applied", "control", "lpp_applied_w", device_class=_P, unit=_W), entity_registry_enabled_default=False),
-    _remote("lpc_distributed", "control", "distributed_limit_w", device_class=_P, unit=_W, category=_DIAG),
+    replace(_remote("lpc_applied", "control", "lpc_applied_w", device_class=_P, unit=_W, when_block=True), entity_registry_enabled_default=False),
+    replace(_remote("lpp_applied", "control", "lpp_applied_w", device_class=_P, unit=_W, when_block=True), entity_registry_enabled_default=False),
+    _remote("lpc_distributed", "control", "distributed_limit_w", device_class=_P, unit=_W, category=_DIAG, when_block=True),
+    # Heat pump flexibility (OHPCF)
+    EebusSensorEntityDescription(
+        key="flex_state",
+        translation_key="flex_state",
+        device_class=SensorDeviceClass.ENUM,
+        options=FLEX_STATES,
+        value_fn=lambda d: _get(d, "flex", "state") or "none",
+        available_fn=lambda d: bool(_get(d, "flex", "supported")),
+    ),
+    _remote("flex_power", "flex", "power_w", device_class=_P, unit=_W),
+    _remote("flex_max_power", "flex", "max_power_w", device_class=_P, unit=_W, category=_DIAG),
 )
 
 
@@ -488,6 +517,16 @@ class EebusRemoteSensor(EebusRemoteEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
+        if self.entity_description.key == "flex_state":
+            flex = self.device_data.get("flex") or {}
+            return {
+                key: flex.get(key)
+                for key in (
+                    "power_w", "max_power_w", "pausable", "stoppable", "start_time",
+                    "min_run_s", "min_pause_s", "last_command", "last_error",
+                )
+                if flex.get(key) is not None
+            }
         if self.entity_description.key != "remote_category":
             return None
         dev = self.device_data
@@ -496,6 +535,83 @@ class EebusRemoteSensor(EebusRemoteEntity, SensorEntity):
             "entity_types": dev.get("entity_types") or [],
             "use_cases": dev.get("use_cases") or [],
         }
+
+
+# Longer gaps between two power readings (e.g. Home Assistant or the bridge
+# was offline) are not integrated: the consumption in between is unknown.
+MAX_INTEGRATION_GAP_S = 600.0
+
+
+def needs_calculated_energy(dev: dict[str, Any]) -> bool:
+    """Heat pumps that report their power but no energy counter."""
+    return (
+        dev.get("category") == "heat_pump"
+        and _get(dev, "mpc", "power_w") is not None
+        and _get(dev, "mpc", "energy_consumed_wh") is None
+    )
+
+
+def integrate_energy(
+    total_kwh: float,
+    last: tuple[float, float] | None,
+    now_s: float,
+    power_w: float,
+) -> float:
+    """Add the energy between the last and this reading (trapezoidal rule)."""
+    if last is None:
+        return total_kwh
+    last_s, last_w = last
+    dt = now_s - last_s
+    if dt <= 0 or dt > MAX_INTEGRATION_GAP_S:
+        return total_kwh
+    avg_w = (max(0.0, last_w) + max(0.0, power_w)) / 2
+    return total_kwh + avg_w * dt / 3_600_000
+
+
+class EebusCalculatedEnergySensor(EebusRemoteEntity, RestoreSensor):
+    """Energy consumed, calculated from the power (device has no counter).
+
+    For the energy dashboard. Only consumption is counted; gaps longer than
+    ten minutes (bridge or Home Assistant offline) are skipped.
+    """
+
+    _attr_translation_key = "remote_energy_calculated"
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_suggested_display_precision = 2
+
+    def __init__(self, coordinator: EebusCoordinator, ski: str) -> None:
+        super().__init__(coordinator, ski, "energy_calculated")
+        self._total = 0.0
+        self._last: tuple[float, float] | None = None
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        if (last := await self.async_get_last_sensor_data()) is not None:
+            try:
+                self._total = float(last.native_value or 0)
+            except (TypeError, ValueError):
+                self._total = 0.0
+        self._sample()
+
+    def _sample(self) -> None:
+        power = _get(self.device_data, "mpc", "power_w")
+        if power is None or not self.conn.get("connected", True):
+            self._last = None
+            return
+        now = time.monotonic()
+        self._total = integrate_energy(self._total, self._last, now, float(power))
+        self._last = (now, float(power))
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        self._sample()
+        super()._handle_coordinator_update()
+
+    @property
+    def native_value(self) -> float:
+        return round(self._total, 4)
 
 
 class EebusSurplusSensor(EebusEntity, SensorEntity):

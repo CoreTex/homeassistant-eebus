@@ -11,6 +11,7 @@ import (
 	evcemuc "github.com/enbility/eebus-go/usecases/cem/evcem"
 	evseccuc "github.com/enbility/eebus-go/usecases/cem/evsecc"
 	evsocuc "github.com/enbility/eebus-go/usecases/cem/evsoc"
+	ohpcfuc "github.com/enbility/eebus-go/usecases/cem/ohpcf"
 	opevuc "github.com/enbility/eebus-go/usecases/cem/opev"
 	vabduc "github.com/enbility/eebus-go/usecases/cem/vabd"
 	vapduc "github.com/enbility/eebus-go/usecases/cem/vapd"
@@ -104,6 +105,11 @@ func (m *Manager) setupUseCases() {
 		m.egLPP = eglpp.NewLPP(le, m.onEgLPP)
 		m.svc.AddUseCase(m.egLPP)
 		m.store.Update(func(s *store.State) { s.InverterControl.Supported = true })
+
+		// OHPCF: heat pumps announce optional consumption (heat or hot water
+		// with PV surplus); starting it is a control action.
+		m.ohpcf = ohpcfuc.NewOHPCF(le, m.onOHPCF)
+		m.svc.AddUseCase(m.ohpcf)
 	}
 }
 

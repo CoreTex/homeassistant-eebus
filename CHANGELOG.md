@@ -8,6 +8,29 @@ and restart Home Assistant after updating the integration.
 `https://github.com/CoreTex/homeassistant-eebus#dev`, integration via HACS with
 beta versions enabled).
 
+## 0.6.0-dev – 2026-11-20
+
+### Added
+- **Heat pumps: use PV surplus (OHPCF).** Heat pumps that announce optional
+  consumption (e.g. Bosch CS5800i with K 40 RF) get an *Optional consumption*
+  sensor (state, requested power), buttons to start, pause, resume and stop
+  it, and a *Use PV surplus* switch that starts it automatically on surplus
+  (same grid sensor, reserve and delays as PV-surplus charging; minimum run
+  and pause times are respected). The heat pump card shows it with buttons
+  (#4). Add-on API: `POST /api/devices/{ski}/flex`.
+- **Energy consumed (calculated)** for heat pumps that report their power but
+  no energy counter, for the energy dashboard (#4).
+
+### Changed
+- Sensors for values a device announces but never sends are no longer
+  created (they stayed "unavailable" forever). They appear automatically once
+  a value arrives. Entities created by older versions can be removed in the
+  entity settings.
+- **Diagnostics are anonymised:** SKIs become `bridge`, `device_1`, ...;
+  device names, serial numbers, SPINE addresses, SHIP ID, QR code, host,
+  certificate fingerprint and vehicle identifications are removed, so the
+  file can be attached to an issue.
+
 ## 0.5.1-dev – 2026-11-19
 
 ### Documentation

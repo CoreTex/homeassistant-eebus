@@ -36,6 +36,9 @@ type Controller interface {
 	SetDeviceProductionLimit(ski string, targetW *float64, active *bool, durationS *float64) error
 	SetDeviceFailsafe(ski string, powerW, durationS *float64) error
 	SetEVCurrent(ski string, currentA *float64) error
+	// SetFlex starts/pauses/resumes/stops a heat pump's optional consumption
+	// (OHPCF); startIn delays a start.
+	SetFlex(ski, action string, startIn time.Duration) error
 	SimulateGridLimit(valueW float64, active bool, durationS float64) error
 	// SpineDump returns the raw SPINE data of the connected devices; the
 	// concrete type is opaque to the API (it is only serialised).
@@ -85,6 +88,7 @@ func New(addr, token, version string, st *store.Store, ctrl Controller) *Server 
 	mux.HandleFunc("POST /api/devices/{ski}/lpp", s.auth(s.handleDeviceLimit(true)))
 	mux.HandleFunc("POST /api/devices/{ski}/failsafe", s.auth(s.handleDeviceFailsafe))
 	mux.HandleFunc("POST /api/devices/{ski}/ev_current", s.auth(s.handleEVCurrent))
+	mux.HandleFunc("POST /api/devices/{ski}/flex", s.auth(s.handleFlex))
 	mux.HandleFunc("GET /api/diagnostics", s.auth(s.handleDiagnostics))
 	mux.HandleFunc("GET /api/pairing", s.auth(s.handlePairing))
 	mux.HandleFunc("POST /api/pairing/trust", s.auth(s.handleTrust))
@@ -331,6 +335,29 @@ func (s *Server) handleEVCurrent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	respond(w, s.ctrl.SetEVCurrent(r.PathValue("ski"), req.CurrentA))
+}
+
+type flexReq struct {
+	// Action is "start", "pause", "resume" or "stop".
+	Action string `json:"action"`
+	// StartInS delays a start by this many seconds (0 = now).
+	StartInS float64 `json:"start_in_s"`
+}
+
+func (s *Server) handleFlex(w http.ResponseWriter, r *http.Request) {
+	var req flexReq
+	if !decode(w, r, &req) {
+		return
+	}
+	if req.Action == "" {
+		writeError(w, http.StatusBadRequest, "action is required (start, pause, resume, stop)")
+		return
+	}
+	if req.StartInS < 0 || req.StartInS > 86400 {
+		writeError(w, http.StatusBadRequest, "start_in_s must be between 0 and 86400")
+		return
+	}
+	respond(w, s.ctrl.SetFlex(r.PathValue("ski"), req.Action, time.Duration(req.StartInS*float64(time.Second))))
 }
 
 func (s *Server) handleSimulate(w http.ResponseWriter, r *http.Request) {

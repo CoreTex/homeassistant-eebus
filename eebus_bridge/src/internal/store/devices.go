@@ -1,6 +1,9 @@
 package store
 
-import "slices"
+import (
+	"slices"
+	"time"
+)
 
 // Device categories, derived from the SPINE device type, entity types and the
 // use cases a remote announces (see eebus.classify).
@@ -35,6 +38,30 @@ type DeviceData struct {
 	Grid       *GridState       `json:"grid,omitempty"`
 	EV         *EVState         `json:"ev,omitempty"`
 	Control    *DeviceControl   `json:"control,omitempty"`
+	// Flex is OHPCF: a heat pump compressor offering optional consumption
+	// (e.g. to use PV surplus) that the bridge may start, pause or stop.
+	Flex *FlexState `json:"flex,omitempty"`
+}
+
+// FlexState is OHPCF ("Optimization of Self-Consumption by Heat Pump
+// Compressor Flexibility") data of one heat pump.
+//
+// State is one of "available" (offer waiting for a start), "scheduled",
+// "running", "paused", "completed", "stopped"; "" while the heat pump has no
+// offer. PowerW is the expected consumption, MaxPowerW the maximum.
+type FlexState struct {
+	Supported   bool       `json:"supported"`
+	State       string     `json:"state,omitempty"`
+	Available   bool       `json:"available"`
+	PowerW      *float64   `json:"power_w,omitempty"`
+	MaxPowerW   *float64   `json:"max_power_w,omitempty"`
+	Pausable    bool       `json:"pausable"`
+	Stoppable   bool       `json:"stoppable"`
+	StartTime   *time.Time `json:"start_time,omitempty"`
+	MinRunS     *float64   `json:"min_run_s,omitempty"`
+	MinPauseS   *float64   `json:"min_pause_s,omitempty"`
+	LastCommand string     `json:"last_command,omitempty"`
+	LastError   string     `json:"last_error,omitempty"`
 }
 
 // HasUseCase reports whether the device announced the given capability.

@@ -21,7 +21,8 @@ configuration:
     description: >-
       Erlaubt der Bridge, Verbrauchs- und Einspeiselimits an Geräte zu senden:
       Wallboxen und Wärmepumpen dimmen (§14a), Lademodi für LPC-Wallboxen,
-      Wechselrichter-Limits. Für die meisten Steuerfunktionen nötig.
+      Wechselrichter-Limits und Wärmepumpen mit optionalem Verbrauch starten
+      (OHPCF, z. B. bei PV-Überschuss). Für die meisten Steuerfunktionen nötig.
   distribute_lpc:
     name: Netzbetreiber-Limit verteilen (§14a)
     description: >-

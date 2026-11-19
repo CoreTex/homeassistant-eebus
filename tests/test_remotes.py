@@ -86,9 +86,9 @@ async def test_remotes(hass: HomeAssistant) -> None:
         assert hass.states.get(trusted).state == "on"
         assert hass.states.get(power).state == "11000.0"
         assert hass.states.get(energy).state == "1234.0"
-        # inverter: no energy reported -> unavailable, power present
+        # inverter: power present; no energy reported -> no (empty) entity
         assert hass.states.get(eid("sensor", INV, "remote_power")).state == "500.0"
-        assert hass.states.get(eid("sensor", INV, "remote_energy_consumed")).state == "unavailable"
+        assert eid("sensor", INV, "remote_energy_consumed") is None
         # bridge-level sensor still from primary only
         # the bridge-level copy of the leading inverter exists but is disabled
         # by default (the values live on the inverter device)

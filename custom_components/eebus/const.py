@@ -12,6 +12,7 @@ PLATFORMS: list[Platform] = [
     Platform.NUMBER,
     Platform.SWITCH,
     Platform.SELECT,
+    Platform.BUTTON,
 ]
 
 CONF_HOST = "host"

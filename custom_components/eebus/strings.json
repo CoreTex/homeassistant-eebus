@@ -168,7 +168,22 @@
       "remote_battery_capacity": { "name": "Battery usable capacity" },
       "remote_battery_cycles": { "name": "Battery load cycles" },
       "remote_battery_voltage": { "name": "Battery voltage" },
-      "remote_battery_current": { "name": "Battery current" }
+      "remote_battery_current": { "name": "Battery current" },
+      "flex_state": {
+        "name": "Optional consumption",
+        "state": {
+          "none": "No offer",
+          "available": "Available",
+          "scheduled": "Scheduled",
+          "running": "Running",
+          "paused": "Paused",
+          "completed": "Completed",
+          "stopped": "Stopped"
+        }
+      },
+      "flex_power": { "name": "Optional consumption power" },
+      "flex_max_power": { "name": "Optional consumption max. power" },
+      "remote_energy_calculated": { "name": "Energy consumed (calculated)" }
     },
     "binary_sensor": {
       "consumption_limit_active": { "name": "Grid operator limit active (consumption)" },
@@ -203,7 +218,8 @@
       "inverter_production_limit_active": { "name": "Leading inverter feed-in limit active" },
       "remote_trusted": { "name": "Trusted" },
       "lpc_active": { "name": "Consumption limit active" },
-      "lpp_active": { "name": "Feed-in limit active" }
+      "lpp_active": { "name": "Feed-in limit active" },
+      "flex_pv_surplus": { "name": "Use PV surplus" }
     },
     "select": {
       "charge_mode": {
@@ -217,6 +233,12 @@
           "manual": "Manual power"
         }
       }
+    },
+    "button": {
+      "flex_start": { "name": "Start optional consumption" },
+      "flex_pause": { "name": "Pause optional consumption" },
+      "flex_resume": { "name": "Resume optional consumption" },
+      "flex_stop": { "name": "Stop optional consumption" }
     }
   },
   "options": {

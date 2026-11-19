@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/CoreTex/homeassistant-eebus/eebus_bridge/internal/store"
 )
@@ -24,6 +25,8 @@ type stubController struct {
 	lastTarget   *float64
 	lastActivePt *bool
 	lastCurrent  *float64
+	lastAction   string
+	lastStartIn  time.Duration
 }
 
 func (s *stubController) maybeFail(name string) error {
@@ -86,6 +89,11 @@ func (s *stubController) SetDeviceFailsafe(ski string, _, _ *float64) error {
 func (s *stubController) SetEVCurrent(ski string, c *float64) error {
 	s.lastSKI, s.lastCurrent = ski, c
 	return s.maybeFail("SetEVCurrent")
+}
+
+func (s *stubController) SetFlex(ski, action string, startIn time.Duration) error {
+	s.lastSKI, s.lastAction, s.lastStartIn = ski, action, startIn
+	return s.maybeFail("SetFlex")
 }
 
 func (s *stubController) SimulateGridLimit(v float64, a bool, _ float64) error {
@@ -278,6 +286,16 @@ func TestDeviceEndpoints(t *testing.T) {
 	resp = post(t, ts, "/api/devices/"+ski+"/ev_current", "", `{}`)
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("empty ev_current should be 400, got %d", resp.StatusCode)
+	}
+
+	resp = post(t, ts, "/api/devices/"+ski+"/flex", "", `{"action": "start", "start_in_s": 90}`)
+	if resp.StatusCode != http.StatusOK || ctrl.lastAction != "start" || ctrl.lastStartIn != 90*time.Second {
+		t.Fatalf("flex: status %d action=%q startIn=%v", resp.StatusCode, ctrl.lastAction, ctrl.lastStartIn)
+	}
+	for _, body := range []string{`{}`, `{"action": "start", "start_in_s": -1}`} {
+		if resp = post(t, ts, "/api/devices/"+ski+"/flex", "", body); resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("flex %s should be 400, got %d", body, resp.StatusCode)
+		}
 	}
 
 	resp = post(t, ts, "/api/devices/"+ski+"/failsafe", "", `{"power_w": 11000}`)

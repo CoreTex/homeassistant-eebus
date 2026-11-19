@@ -50,6 +50,9 @@ type Manager struct {
 	// evEntities holds the EV entity of each wallbox while a vehicle is
 	// connected, keyed by wallbox SKI.
 	evEntities map[string]spineapi.EntityRemoteInterface
+	// flexEntities holds the compressor entity of each heat pump offering
+	// OHPCF, keyed by SKI.
+	flexEntities map[string]spineapi.EntityRemoteInterface
 	// distMu serialises the §14a distribution.
 	distMu sync.Mutex
 	// lastDistribution throttles measurement-driven re-distribution (unix ns).
@@ -87,6 +90,9 @@ type Manager struct {
 	evcem  ucapi.CemEVCEMInterface
 	evsoc  ucapi.CemEVSOCInterface
 	opev   ucapi.CemOPEVInterface
+
+	// heat pump flexibility
+	ohpcf ucapi.CemOHPCFInterface
 }
 
 // NewManager builds and sets up the EEBUS service but does not start it.
@@ -104,7 +110,8 @@ func NewManager(cfg config.Config, st *store.Store, version string) (*Manager, e
 			KindLPC: {},
 			KindLPP: {},
 		},
-		evEntities: make(map[string]spineapi.EntityRemoteInterface),
+		evEntities:   make(map[string]spineapi.EntityRemoteInterface),
+		flexEntities: make(map[string]spineapi.EntityRemoteInterface),
 	}
 
 	certificate, err := m.loadOrCreateCertificate()

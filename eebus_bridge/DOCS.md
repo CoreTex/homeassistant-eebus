@@ -56,7 +56,7 @@ in Docker, see below):
 | `trusted_skis` | `[]` | Trusted devices (SKIs): SKIs of EEBUS devices that may pair with the bridge (inverter, wallboxes, heat pumps, control box). Devices can also be trusted in Home Assistant with the "Trusted" switch of each device. |
 | `auto_accept_trust` | `false` | Accept every pairing request: Trust any device that asks to pair. Switch on only while pairing a new device, then off again; accepted devices stay trusted. |
 | **Control** | | |
-| `enable_eg_control` | `false` | Control devices (Energy Guard): Lets the bridge send consumption/production limits to devices: dim wallboxes and heat pumps (§14a), charge modes of LPC-only wallboxes, inverter limits. Required for most control features. |
+| `enable_eg_control` | `false` | Control devices (Energy Guard): Lets the bridge send consumption/production limits to devices: dim wallboxes and heat pumps (§14a), charge modes of LPC-only wallboxes, inverter limits, and start heat pumps that offer optional consumption (OHPCF, e.g. on PV surplus). Required for most control features. |
 | `distribute_lpc` | `false` | Share grid operator limit (§14a): When the grid operator's control box limits the home, share that limit by demand among the connected wallboxes and heat pumps. |
 | `distribute_lpc_inverters` | `false` | Include storage in §14a sharing: Also give inverters with a battery a share (limits charging the battery from the grid). Enable if your storage is registered with the grid operator under §14a. |
 | `enable_lpc_simulation` | `false` | Allow §14a simulation (testing): Allows the service "Simulate grid operator limit" to test the whole §14a chain without a control box. Refused while a real control box is connected or a real limit is active. |
@@ -93,7 +93,7 @@ and use cases, right after pairing:
 | --- | --- |
 | **Inverter** | Monitoring (MPC, MOI, VAPD) and battery (MOB, VABD); consumption and feed-in limits |
 | **Wallbox** | §14a power limit (LPC); with EVSECC/EVCC/EVCEM/EVSOC/OPEV also vehicle state, charging power, state of charge and charging current |
-| **Heat pump** | Monitoring (MPC); §14a dimming (LPC) |
+| **Heat pump** | Monitoring (MPC); §14a dimming (LPC); optional consumption (OHPCF): start, pause, resume, stop – e.g. on PV surplus |
 | **Grid meter** | Grid power (positive = import), feed-in/consumption energy, feed-in limitation |
 | **Control box** | Sends the grid operator's limits to the bridge |
 
@@ -143,7 +143,7 @@ image is the same one the add-on uses:
 - `ghcr.io/coretex/aarch64-addon-eebus_bridge:<version>` (ARM 64-bit, e.g.
   Raspberry Pi 4/5)
 
-Use a fixed version (e.g. `0.5.1-dev`) and update it together with the
+Use a fixed version (e.g. `0.6.0-dev`) and update it together with the
 integration; `latest` always points to the newest build, including
 pre-releases.
 
@@ -188,7 +188,7 @@ pre-releases.
    docker run -d --name eebus-bridge --restart unless-stopped \
      --network host \
      -v /opt/eebus-bridge:/data \
-     ghcr.io/coretex/amd64-addon-eebus_bridge:0.5.1-dev
+     ghcr.io/coretex/amd64-addon-eebus_bridge:0.6.0-dev
    ```
 
    or with Docker Compose:
@@ -196,7 +196,7 @@ pre-releases.
    ```yaml
    services:
      eebus-bridge:
-       image: ghcr.io/coretex/amd64-addon-eebus_bridge:0.5.1-dev
+       image: ghcr.io/coretex/amd64-addon-eebus_bridge:0.6.0-dev
        container_name: eebus-bridge
        network_mode: host
        restart: unless-stopped
@@ -215,7 +215,7 @@ host for the bridge.
 ## Supported EEBUS use cases
 
 LPC / LPP (as controllable system and as Energy Guard), MPC, MOI, MOB, VAPD,
-VABD, MGCP, EVSECC, EVCC, EVCEM, EVSOC, OPEV. MOI and MOB come from the
+VABD, MGCP, EVSECC, EVCC, EVCEM, EVSOC, OPEV, OHPCF. MOI and MOB come from the
 [`CoreTex/eebus-go`](https://github.com/CoreTex/eebus-go/tree/feature/uc-ma-moi-mob)
 fork, which is intended to be contributed upstream.
 
@@ -248,6 +248,7 @@ set, send `Authorization: Bearer <token>` (or `?token=` for the WebSocket).
 | `POST /api/devices/{ski}/lpc` · `/lpp` | `{target_w?, active?, duration_s?}` – stage and/or apply a device limit |
 | `POST /api/devices/{ski}/failsafe` | `{power_w?, duration_s?}` – device failsafe |
 | `POST /api/devices/{ski}/ev_current` | `{current_a}` (A per phase, 0 = pause) or `{release: true}` |
+| `POST /api/devices/{ski}/flex` | `{action}` = `start` / `pause` / `resume` / `stop` for a heat pump's optional consumption (OHPCF); `start_in_s` delays a start |
 | `POST /api/lpc/simulate` | `{value_w, active, duration_s}` – simulated grid operator limit |
 | `POST /api/lpc/failsafe` · `/api/lpp/failsafe` | `{power_w?, duration_s?}` – failsafe reported to the grid operator |
 | `POST /api/lpc/nominal_max` · `/api/lpp/nominal_max` | `{value_w}` – nominal power reported to the grid operator |

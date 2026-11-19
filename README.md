@@ -29,7 +29,7 @@ classified at runtime.
 | **Inverter / hybrid inverter** | AC power, energy, yield, current, voltage, frequency; PV data | Consumption and feed-in limits; take part in §14a sharing (battery charging from the grid) |
 | **Battery** | Power, state of charge, state of health, energy, temperature – as reported | – (via the inverter's limits) |
 | **Wallbox** | Vehicle plugged in, charge state, charging power and energy, vehicle state of charge – if the wallbox reports them | **Charge modes** incl. PV-surplus charging, power or current limit, §14a dimming, failsafe |
-| **Heat pump** | Power, energy | §14a dimming (consumption limit), failsafe |
+| **Heat pump** | Power, energy (calculated from the power if the heat pump has no counter) | §14a dimming (consumption limit), failsafe; **start optional consumption on PV surplus** (OHPCF) |
 | **Grid meter / gateway** | Grid power, feed-in and consumption energy, feed-in limitation | – |
 | **Grid operator control box** | Received §14a / feed-in limits, heartbeat | Limits are held and **shared by demand** among your controllable devices |
 
@@ -93,7 +93,7 @@ as your EEBUS devices – same image as the add-on, configured with an
 
 ```bash
 docker run -d --name eebus-bridge --restart unless-stopped --network host \
-  -v /opt/eebus-bridge:/data ghcr.io/coretex/amd64-addon-eebus_bridge:0.5.1-dev
+  -v /opt/eebus-bridge:/data ghcr.io/coretex/amd64-addon-eebus_bridge:0.6.0-dev
 ```
 
 Use `aarch64` instead of `amd64` on ARM (e.g. Raspberry Pi). Details, a
@@ -125,9 +125,10 @@ Every option has a name and help text on the add-on's configuration page.
 
 ### Integration options (*EEBUS → Configure*)
 
-Settings for the wallbox charge modes, each with a help text: grid power
-sensor (positive when importing), reserve for the house, minimum/maximum
-charging power, start and stop delay of the PV mode, control interval.
+Settings for the wallbox charge modes and the heat pumps' *Use PV surplus*,
+each with a help text: grid power sensor (positive when importing), reserve
+for the house, minimum/maximum charging power, start and stop delay of the PV
+mode, control interval.
 
 ## In Home Assistant
 
@@ -151,8 +152,28 @@ classified it, with its use cases as attributes), plus whatever it supports:
 - **Wallboxes:** **Charge mode**, **Charge power (manual)**; with vehicle
   data also plugged in, charge state, charging power, energy, state of charge
   and current limits.
+- **Heat pumps** that offer optional consumption (OHPCF): **Optional
+  consumption** (state and requested power), buttons to **start**, **pause**,
+  **resume** and **stop** it, and **Use PV surplus** – see below.
 - **Measurements** as reported: power, energy, PV, battery, inverter AC side,
-  grid meter values.
+  grid meter values. Values a device announces but never sends get no entity.
+  Heat pumps without an energy counter get **Energy consumed (calculated)**
+  from their power, for the energy dashboard.
+
+### Heat pump: use PV surplus (OHPCF)
+
+Some heat pumps (e.g. Bosch with the K 40 RF module) announce when they
+*could* run now – heat the buffer or make hot water – and how much power they
+would need. With **Use PV surplus** switched on, Home Assistant starts this
+optional consumption once the surplus covers the requested power for the
+start delay, pauses it (if the heat pump allows) when less than half of its
+consumption is covered for the stop delay, and resumes it later. Minimum run
+and pause times of the heat pump are respected; it is never stopped
+automatically. Grid sensor, reserve and delays are the same as for
+PV-surplus charging. Requires *Control devices* in the add-on.
+
+Whether a heat pump offers this depends on the model and its settings; if it
+does, the *Optional consumption* sensor appears on its device.
 
 Bridge-level copies of the leading inverter's values, per-phase details and
 other duplicates are disabled by default; the values are on the inverter's own
@@ -176,7 +197,7 @@ history graph.
 | **EEBUS inverter** (`custom:eebus-inverter-card`) | AC power, PV yield, energy, frequency, limits | inverters |
 | **EEBUS battery** (`custom:eebus-battery-card`) | State of charge as a cell, charging/discharging, stored energy and capacity, cycles, temperature, voltage | inverters with a battery |
 | **EEBUS wallbox** (`custom:eebus-wallbox-card`) | Charge mode switcher, charging power or applied limit, manual power slider, vehicle state of charge, §14a share | wallboxes |
-| **EEBUS heat pump** (`custom:eebus-heat-pump-card`) | Power, energy, §14a dimming | heat pumps |
+| **EEBUS heat pump** (`custom:eebus-heat-pump-card`) | Power, energy, §14a dimming; optional consumption with start/pause and *Use PV surplus* | heat pumps |
 | **EEBUS grid meter** (`custom:eebus-grid-card`) | Import/feed-in bar, energy counters, feed-in limitation | grid meters |
 | **EEBUS device** (`custom:eebus-device-card`) | Picks the matching card automatically | any EEBUS device |
 
@@ -338,13 +359,14 @@ are harmless: a device does not offer an optional read.
 | VAPD / VABD – aggregated PV / battery data | CEM |
 | MGCP – Monitoring of Grid Connection Point | Monitoring appliance |
 | EVSECC, EVCC, EVCEM, EVSOC, OPEV – wallbox and vehicle | CEM |
+| OHPCF – Optimization of Self-Consumption by Heat Pump Compressor Flexibility | CEM |
 
 \* MOI and MOB are not in upstream `eebus-go` yet. The add-on builds against
 the fork [`CoreTex/eebus-go`](https://github.com/CoreTex/eebus-go/tree/feature/uc-ma-moi-mob),
 which is intended to be contributed upstream.
 
-Not supported yet: Control of Battery, heat-pump optimisation (OHPCF), hot
-water and room temperature use cases. Heat pumps can be dimmed and monitored.
+Not supported yet: Control of Battery, hot water and room temperature use
+cases.
 
 ## Changelog
 

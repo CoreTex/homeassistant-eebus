@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0-dev
+
+- Heat pumps: optional consumption (OHPCF) – report the offer, start, pause,
+  resume and stop it (`POST /api/devices/{ski}/flex`).
+
 ## 0.5.1-dev
 
 - Documentation: full option reference and running the bridge in Docker
