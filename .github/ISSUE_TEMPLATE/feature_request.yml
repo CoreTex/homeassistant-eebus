@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest a new feature or support for a device.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: situation
+    attributes:
+      label: What would you like to do?
+      description: Describe the situation you want to solve, e.g. "dim my heat pump when electricity is expensive".
+    validations:
+      required: true
+  - type: textarea
+    id: devices
+    attributes:
+      label: Devices
+      description: Brand and model of the EEBUS devices involved.
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics (for device support)
+      description: |
+        If a device is not fully supported yet: *Settings → Devices & services → EEBUS → ⋮ → Download diagnostics* and attach the file. It shows exactly what the device offers.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: How do you solve it today, or what else did you consider?
