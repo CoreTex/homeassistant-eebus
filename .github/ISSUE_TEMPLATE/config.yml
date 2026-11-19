@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation and troubleshooting
+    url: https://github.com/CoreTex/homeassistant-eebus#troubleshooting
+    about: Installation, pairing, settings and common problems.
+  - name: Report a security problem
+    url: https://github.com/CoreTex/homeassistant-eebus/security/advisories/new
+    about: Please report vulnerabilities privately, not as a public issue.

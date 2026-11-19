@@ -1,0 +1,70 @@
+name: Bug report
+description: Something does not work as expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please check the [troubleshooting section](https://github.com/CoreTex/homeassistant-eebus#troubleshooting) first.
+
+        The **EEBUS Bridge add-on** and the **EEBUS integration** are two separate parts and are installed and updated separately. Please update both to the latest version and restart Home Assistant before reporting.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: How is Home Assistant installed?
+      description: Add-ons are only available on Home Assistant OS and Supervised. On Container/Core the bridge runs as its own Docker container.
+      options:
+        - Home Assistant OS (add-on)
+        - Home Assistant Supervised (add-on)
+        - Home Assistant Container / Core – bridge in Docker
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: addon_version
+    attributes:
+      label: EEBUS Bridge (add-on) version
+      placeholder: e.g. 0.5.0-dev
+    validations:
+      required: true
+  - type: input
+    id: integration_version
+    attributes:
+      label: EEBUS integration version
+      placeholder: e.g. 0.5.0-dev
+    validations:
+      required: true
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: e.g. 2026.11.1
+  - type: textarea
+    id: devices
+    attributes:
+      label: EEBUS devices
+      description: Brand and model of the devices involved (inverter, battery, wallbox, heat pump, smart meter, control box).
+      placeholder: |
+        - KOSTAL PLENTICORE G3 (inverter + battery)
+        - KATHREIN AC40 (wallbox)
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: |
+        *Settings → Devices & services → EEBUS → ⋮ → Download diagnostics*, then drag the file here. It contains the raw EEBUS data of your devices. The API token is removed automatically; remove serial numbers if you prefer.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Add-on log
+      description: For connection or pairing problems set `log_level` to `debug` in the add-on options, reproduce the problem and paste the relevant part.
+      render: text
