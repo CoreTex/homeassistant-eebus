@@ -42,6 +42,9 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
+ADDON_REPOSITORY_URL = "https://github.com/CoreTex/homeassistant-eebus"
+
+
 class EebusConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for EEBUS."""
 
@@ -91,7 +94,10 @@ class EebusConfigFlow(ConfigFlow, domain=DOMAIN):
             }
         )
         return self.async_show_form(
-            step_id="user", data_schema=schema, errors=errors
+            step_id="user",
+            data_schema=schema,
+            errors=errors,
+            description_placeholders={"repository_url": ADDON_REPOSITORY_URL},
         )
 
 

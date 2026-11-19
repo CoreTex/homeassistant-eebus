@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "EEBUS Bridge",
-        "description": "Adresse der EEBUS Bridge. Die Bridge ist ein eigener Teil: Installiere das Add-on „EEBUS Bridge“ (Einstellungen → Add-ons → Add-on-Store, Repository https://github.com/CoreTex/homeassistant-eebus) und starte es – HACS installiert nur diese Integration. Mit dem Add-on die IP deines Home Assistant und Port 7050 verwenden; läuft die Bridge im Docker, die IP des Docker-Hosts.",
+        "description": "Adresse der EEBUS Bridge. Die Bridge ist ein eigener Teil: Installiere das Add-on „EEBUS Bridge“ (Einstellungen → Add-ons → Add-on-Store, Repository {repository_url}) und starte es – HACS installiert nur diese Integration. Mit dem Add-on die IP deines Home Assistant und Port 7050 verwenden; läuft die Bridge im Docker, die IP des Docker-Hosts.",
         "data": {
           "host": "Host",
           "port": "Port",

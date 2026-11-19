@@ -475,6 +475,7 @@ async def test_config_flow_explains_missing_bridge(hass: HomeAssistant) -> None:
             result["flow_id"], {"host": "192.0.2.10", "port": 7050, "token": ""})
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "cannot_connect"}
+    assert result["description_placeholders"]["repository_url"].startswith("https://github.com/")
 
     with (
         patch("custom_components.eebus.api.EebusApiClient.health", AsyncMock(return_value={"ski": BRIDGE})),
