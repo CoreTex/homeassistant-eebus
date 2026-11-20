@@ -143,7 +143,7 @@ image is the same one the add-on uses:
 - `ghcr.io/coretex/aarch64-addon-eebus_bridge:<version>` (ARM 64-bit, e.g.
   Raspberry Pi 4/5)
 
-Use a fixed version (e.g. `0.6.0-dev`) and update it together with the
+Use a fixed version (e.g. `0.6.1-dev`) and update it together with the
 integration; `latest` always points to the newest build, including
 pre-releases.
 
@@ -188,7 +188,7 @@ pre-releases.
    docker run -d --name eebus-bridge --restart unless-stopped \
      --network host \
      -v /opt/eebus-bridge:/data \
-     ghcr.io/coretex/amd64-addon-eebus_bridge:0.6.0-dev
+     ghcr.io/coretex/amd64-addon-eebus_bridge:0.6.1-dev
    ```
 
    or with Docker Compose:
@@ -196,7 +196,7 @@ pre-releases.
    ```yaml
    services:
      eebus-bridge:
-       image: ghcr.io/coretex/amd64-addon-eebus_bridge:0.6.0-dev
+       image: ghcr.io/coretex/amd64-addon-eebus_bridge:0.6.1-dev
        container_name: eebus-bridge
        network_mode: host
        restart: unless-stopped

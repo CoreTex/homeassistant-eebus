@@ -8,6 +8,16 @@ and restart Home Assistant after updating the integration.
 `https://github.com/CoreTex/homeassistant-eebus#dev`, integration via HACS with
 beta versions enabled).
 
+## 0.6.1-dev – 2026-11-20
+
+### Fixed
+- **Heat pumps with OHPCF (e.g. Bosch CS5800i/CS6800i) now get a consumption
+  limit from the bridge** – a deactivated one unless you set a limit – right
+  after they connect. Without it the heat pump waited for an energy manager
+  that controls it, showed a communication error (Bosch 1240) and ignored
+  *Start optional consumption* (#7). Other devices are not touched, since
+  another energy manager may control them.
+
 ## 0.6.0-dev – 2026-11-20
 
 ### Added

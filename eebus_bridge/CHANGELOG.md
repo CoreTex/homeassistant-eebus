@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.1-dev
+
+- Heat pumps offering OHPCF get the current (normally deactivated) LPC limit
+  after connecting, so they accept the bridge as their energy manager (#7).
+
 ## 0.6.0-dev
 
 - Heat pumps: optional consumption (OHPCF) – report the offer, start, pause,

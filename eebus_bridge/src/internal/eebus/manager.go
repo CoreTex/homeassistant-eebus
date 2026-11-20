@@ -53,6 +53,9 @@ type Manager struct {
 	// flexEntities holds the compressor entity of each heat pump offering
 	// OHPCF, keyed by SKI.
 	flexEntities map[string]spineapi.EntityRemoteInterface
+	// lpcControlled marks heat pumps that received the bridge's (deactivated)
+	// consumption limit since they connected, see takeLPCControl.
+	lpcControlled map[string]bool
 	// distMu serialises the §14a distribution.
 	distMu sync.Mutex
 	// lastDistribution throttles measurement-driven re-distribution (unix ns).
@@ -110,8 +113,9 @@ func NewManager(cfg config.Config, st *store.Store, version string) (*Manager, e
 			KindLPC: {},
 			KindLPP: {},
 		},
-		evEntities:   make(map[string]spineapi.EntityRemoteInterface),
-		flexEntities: make(map[string]spineapi.EntityRemoteInterface),
+		evEntities:    make(map[string]spineapi.EntityRemoteInterface),
+		flexEntities:  make(map[string]spineapi.EntityRemoteInterface),
+		lpcControlled: make(map[string]bool),
 	}
 
 	certificate, err := m.loadOrCreateCertificate()

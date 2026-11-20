@@ -94,3 +94,26 @@ func TestClassifyHeatPumpByOHPCF(t *testing.T) {
 		t.Fatalf("classify = %q", got)
 	}
 }
+
+func TestTakeLPCControlOnlyForHeatPumpsWithOHPCF(t *testing.T) {
+	m := newTestManager(t, config.Config{})
+	ski := "0123456789abcdef0123456789abcdef01234567"
+
+	// LPC alone (e.g. a wallbox another energy manager may control): untouched
+	m.egEntities[KindLPC][ski] = nil
+	m.takeLPCControl(ski)
+	if m.lpcControlled[ski] {
+		t.Fatal("a device without OHPCF must not be taken over")
+	}
+
+	// LPC + OHPCF: sent once per connection
+	m.flexEntities[ski] = nil
+	m.takeLPCControl(ski)
+	if !m.lpcControlled[ski] {
+		t.Fatal("a heat pump with OHPCF should get the bridge's limit")
+	}
+	m.forgetEntities(ski)
+	if m.lpcControlled[ski] {
+		t.Fatal("a reconnect must send the limit again")
+	}
+}

@@ -76,6 +76,9 @@ func (m *Manager) onEG(kind LimitKind, device spineapi.DeviceRemoteInterface, en
 		m.seedLeadingTargets()
 		m.syncConnections()
 		m.mirrorLeading()
+		if kind == KindLPC {
+			m.takeLPCControl(ski)
+		}
 		// Re-apply a user or §14a limit after a (re)connect.
 		if err := m.applyLimit(kind, ski, false); err != nil && !errors.Is(err, errNotConnected) {
 			m.logger.Errorf("re-applying %s limit to %s: %v", kind, ski, err)
@@ -94,6 +97,35 @@ func (m *Manager) egScenarios(kind LimitKind, entity spineapi.EntityRemoteInterf
 		return m.egLPP.AvailableScenariosForEntity(entity)
 	}
 	return nil
+}
+
+// takeLPCControl sends a heat pump that offers OHPCF the current consumption
+// limit (normally a deactivated one) once after it connected.
+//
+// Heat pumps such as the Bosch CS5800i/CS6800i only follow an energy manager
+// that actually controls them via LPC: a heat pump that gets heartbeats but
+// never a limit stays in its init/failsafe state, shows a communication error
+// (Bosch: 1240) and does not start on OHPCF. Other devices are left alone, as
+// they may be controlled by another energy manager.
+func (m *Manager) takeLPCControl(ski string) {
+	m.mu.Lock()
+	_, flex := m.flexEntities[ski]
+	_, lpc := m.egEntities[KindLPC][ski]
+	done := m.lpcControlled[ski]
+	if flex && lpc && !done {
+		m.lpcControlled[ski] = true
+	}
+	m.mu.Unlock()
+	if !flex || !lpc || done {
+		return
+	}
+	m.logger.Infof("heat pump %s: sending the current consumption limit (bridge is its energy manager)", ski)
+	if err := m.applyLimit(KindLPC, ski, true); err != nil {
+		m.logger.Errorf("sending the consumption limit to %s: %v", ski, err)
+		m.mu.Lock()
+		delete(m.lpcControlled, ski)
+		m.mu.Unlock()
+	}
 }
 
 // readBackLimit stores the limit the device itself reports.
@@ -272,6 +304,10 @@ func (m *Manager) applyLimit(kind LimitKind, ski string, force bool) error {
 		return nil
 	}
 
+	if !active && ctl.LPCNominalMaxW != nil && kind == KindLPC {
+		// the value of a deactivated limit is ignored; some devices reject 0
+		value = *ctl.LPCNominalMaxW
+	}
 	limit := ucapi.LoadLimit{
 		Value:        value,
 		IsActive:     active,
