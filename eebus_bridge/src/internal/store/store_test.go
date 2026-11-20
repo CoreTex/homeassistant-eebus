@@ -75,3 +75,31 @@ func TestUpdateCoalescesWhenSubscriberSlow(t *testing.T) {
 		t.Errorf("expected latest snapshot to win, got %+v", got.Battery)
 	}
 }
+
+func TestUpdateDeviceSnapshotIsolation(t *testing.T) {
+	s := New()
+	v1, v2 := 100.0, 200.0
+	s.Update(func(st *State) {
+		st.UpdateDevice("a", func(d *DeviceData) { d.MPC = &MPCState{PowerW: &v1} })
+	})
+	before := s.Snapshot()
+
+	s.Update(func(st *State) {
+		st.UpdateDevice("a", func(d *DeviceData) { d.MPC.PowerW = &v2 })
+		st.UpdateDevice("b", func(d *DeviceData) { d.Battery = &BatteryState{Supported: true} })
+	})
+	after := s.Snapshot()
+
+	if got := *before.Devices["a"].MPC.PowerW; got != 100 {
+		t.Errorf("old snapshot was mutated: power = %v", got)
+	}
+	if _, ok := before.Devices["b"]; ok {
+		t.Error("old snapshot gained a device")
+	}
+	if got := *after.Devices["a"].MPC.PowerW; got != 200 {
+		t.Errorf("new snapshot power = %v, want 200", got)
+	}
+	if !after.Devices["b"].Battery.Supported {
+		t.Error("device b missing in new snapshot")
+	}
+}

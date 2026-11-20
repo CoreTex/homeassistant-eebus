@@ -13,7 +13,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/CoreTex/homeassistant-eebus/eebus_bridge/internal/config"
@@ -41,10 +44,33 @@ type Manager struct {
 
 	mu          sync.Mutex
 	localEntity spineapi.EntityLocalInterface
-	// egEntity is the remote inverter entity we (as Energy Guard) write limits
-	// to. It is discovered when the inverter announces EG-LPC/LPP support.
-	egEntity spineapi.EntityRemoteInterface
-	conns    map[string]*store.Connection
+	// egEntities holds, per limit kind, the remote entity of every device that
+	// accepts limits from us (Energy Guard role), keyed by SKI.
+	egEntities map[LimitKind]map[string]spineapi.EntityRemoteInterface
+	// evEntities holds the EV entity of each wallbox while a vehicle is
+	// connected, keyed by wallbox SKI.
+	evEntities map[string]spineapi.EntityRemoteInterface
+	// flexEntities holds the compressor entity of each heat pump offering
+	// OHPCF, keyed by SKI.
+	flexEntities map[string]spineapi.EntityRemoteInterface
+	// distMu serialises the §14a distribution.
+	distMu sync.Mutex
+	// lastDistribution throttles measurement-driven re-distribution (unix ns).
+	lastDistribution atomic.Int64
+	// soeWarned: implausible battery stored energy was already logged
+	soeWarned atomic.Bool
+	// lpcExpiry ends incoming consumption limits after their duration and
+	// tracks the §14a simulation.
+	lpcExpiry lpcExpiry
+	conns     map[string]*store.Connection
+
+	// primarySKI is the remote whose measurements are mirrored into the
+	// top-level mpc/battery/inverter blocks (see isPrimary).
+	primarySKI    string
+	primaryWarned map[string]bool
+
+	// trustMu serialises read-modify-write of the persisted trust file.
+	trustMu sync.Mutex
 
 	// use case interfaces
 	csLPC ucapi.CsLPCInterface
@@ -54,6 +80,19 @@ type Manager struct {
 	mpc   ucapi.MaMPCInterface
 	vabd  ucapi.CemVABDInterface
 	vapd  ucapi.CemVAPDInterface
+	mgcp  ucapi.MaMGCPInterface
+	moi   ucapi.MaMOIInterface
+	mob   ucapi.MaMOBInterface
+
+	// wallbox / vehicle use cases
+	evsecc ucapi.CemEVSECCInterface
+	evcc   ucapi.CemEVCCInterface
+	evcem  ucapi.CemEVCEMInterface
+	evsoc  ucapi.CemEVSOCInterface
+	opev   ucapi.CemOPEVInterface
+
+	// heat pump flexibility
+	ohpcf ucapi.CemOHPCFInterface
 }
 
 // NewManager builds and sets up the EEBUS service but does not start it.
@@ -64,6 +103,15 @@ func NewManager(cfg config.Config, st *store.Store, version string) (*Manager, e
 		logger:  NewLogger(cfg.LogLevel),
 		version: version,
 		conns:   make(map[string]*store.Connection),
+
+		primarySKI:    cfg.InverterSKI,
+		primaryWarned: make(map[string]bool),
+		egEntities: map[LimitKind]map[string]spineapi.EntityRemoteInterface{
+			KindLPC: {},
+			KindLPP: {},
+		},
+		evEntities:   make(map[string]spineapi.EntityRemoteInterface),
+		flexEntities: make(map[string]spineapi.EntityRemoteInterface),
 	}
 
 	certificate, err := m.loadOrCreateCertificate()
@@ -107,6 +155,9 @@ func NewManager(cfg config.Config, st *store.Store, version string) (*Manager, e
 	}
 
 	m.setupUseCases()
+	if err := m.svc.LocalDevice().Events().Subscribe(m); err != nil {
+		return nil, fmt.Errorf("subscribing to device events: %w", err)
+	}
 	m.publishServiceInfo()
 
 	return m, nil
@@ -120,6 +171,10 @@ func (m *Manager) Start() error {
 	}
 	if m.cfg.InverterSKI != "" {
 		m.registerTrusted(m.cfg.InverterSKI)
+	}
+	// Re-trust remotes paired at runtime in earlier runs.
+	for _, ski := range m.loadPersistedTrust() {
+		m.registerTrusted(ski)
 	}
 
 	if err := m.svc.Start(); err != nil {
@@ -149,6 +204,7 @@ func (m *Manager) Trust(ski string) error {
 		return fmt.Errorf("invalid SKI %q", ski)
 	}
 	m.registerTrusted(ski)
+	m.setPersistedTrust(ski, true)
 	return nil
 }
 
@@ -159,6 +215,10 @@ func (m *Manager) Forget(ski string) error {
 		return fmt.Errorf("invalid SKI %q", ski)
 	}
 	m.svc.UnregisterRemoteService(shipapi.NewServiceIdentity(ski, "", ""))
+	m.setPersistedTrust(ski, false)
+	if slices.Contains(m.cfg.TrustedSKIs, ski) || ski == m.cfg.InverterSKI {
+		m.logger.Infof("%s is listed in the add-on configuration and will be trusted again after a restart", ski)
+	}
 	m.mu.Lock()
 	if c, ok := m.conns[ski]; ok {
 		c.Trusted = false
@@ -221,6 +281,17 @@ func (m *Manager) publishServiceInfo() {
 	info := store.ServiceInfo{
 		Version:    m.version,
 		DeviceName: fmt.Sprintf("%s %s", m.cfg.DeviceBrand, m.cfg.DeviceModel),
+		Features: store.Features{
+			LPC:           m.cfg.EnableLPC,
+			LPP:           m.cfg.EnableLPP,
+			EGControl:     m.cfg.EnableEGControl,
+			EV:            m.cfg.EnableEV,
+			MGCP:          m.cfg.EnableMGCP,
+			DistributeLPC: m.cfg.DistributeLPC,
+
+			DistributeLPCInverters: m.cfg.DistributeLPCInverters,
+			LPCSimulation:          m.cfg.EnableLPCSimulation,
+		},
 	}
 	if local := m.svc.LocalService(); local != nil {
 		info.SKI = local.SKI()
@@ -240,16 +311,28 @@ func (m *Manager) syncConnections() {
 	m.mu.Lock()
 	list := make([]store.Connection, 0, len(m.conns))
 	anyConnected := false
+	primary := m.primarySKI
+	m.mu.Unlock()
+	egTarget := m.leadingEGSKI(KindLPC)
+	if egTarget == "" {
+		egTarget = m.leadingEGSKI(KindLPP)
+	}
+	m.mu.Lock()
 	for _, c := range m.conns {
+		c.Primary = c.SKI == primary
+		c.EnergyGuardTarget = c.SKI == egTarget
 		list = append(list, *c)
 		if c.Connected {
 			anyConnected = true
 		}
 	}
 	m.mu.Unlock()
+	slices.SortFunc(list, func(a, b store.Connection) int { return strings.Compare(a.SKI, b.SKI) })
 	m.store.Update(func(s *store.State) {
 		s.Connections = list
 		s.Connected = anyConnected
+		s.PrimarySKI = primary
+		s.RecomputeSite()
 	})
 }
 

@@ -16,6 +16,22 @@ type ServiceInfo struct {
 	DeviceName  string `json:"device_name"`
 	Fingerprint string `json:"fingerprint"`
 	QRCode      string `json:"qr_code"`
+	// Features reports which add-on options are enabled, so the integration
+	// can explain missing controls (e.g. enable_eg_control is off).
+	Features Features `json:"features"`
+}
+
+// Features mirrors the enable_* options of the add-on.
+type Features struct {
+	LPC           bool `json:"lpc"`
+	LPP           bool `json:"lpp"`
+	EGControl     bool `json:"eg_control"`
+	EV            bool `json:"ev"`
+	MGCP          bool `json:"mgcp"`
+	DistributeLPC bool `json:"distribute_lpc"`
+	// DistributeLPCInverters: inverters (storage) take part in the share-out.
+	DistributeLPCInverters bool `json:"distribute_lpc_inverters"`
+	LPCSimulation          bool `json:"lpc_simulation"`
 }
 
 // Connection is a remote EEBUS service we know about.
@@ -26,6 +42,13 @@ type Connection struct {
 	Model     string `json:"model"`
 	Connected bool   `json:"connected"`
 	Trusted   bool   `json:"trusted"`
+	// Primary marks the device whose measurements feed the top-level
+	// mpc/battery/inverter blocks (the inverter). Other devices only appear
+	// under State.Devices.
+	Primary bool `json:"primary"`
+	// EnergyGuardTarget marks the device that inverter_control limits are
+	// written to.
+	EnergyGuardTarget bool `json:"energy_guard_target"`
 }
 
 // LimitState is a single LPC/LPP load limit as held by the Controllable System.
@@ -40,7 +63,10 @@ type LimitState struct {
 
 // LPCState is the Controllable-System view of "Limitation of Power Consumption".
 type LPCState struct {
-	Supported         bool       `json:"supported"`
+	Supported bool `json:"supported"`
+	// Simulated is true while the active limit comes from the §14a
+	// simulation (enable_lpc_simulation) rather than a control box.
+	Simulated         bool       `json:"simulated"`
 	Limit             LimitState `json:"limit"`
 	FailsafePowerW    float64    `json:"failsafe_power_w"`
 	FailsafeDurationS float64    `json:"failsafe_duration_s"`
@@ -77,6 +103,14 @@ type BatteryState struct {
 	StateOfChargePct   *float64 `json:"state_of_charge_pct,omitempty"`
 	EnergyChargedWh    *float64 `json:"energy_charged_wh,omitempty"`
 	EnergyDischargedWh *float64 `json:"energy_discharged_wh,omitempty"`
+	// MOB only
+	StateOfHealthPct *float64 `json:"state_of_health_pct,omitempty"`
+	TemperatureC     *float64 `json:"temperature_c,omitempty"`
+	StateOfEnergyWh  *float64 `json:"state_of_energy_wh,omitempty"`
+	UsableCapacityWh *float64 `json:"usable_capacity_wh,omitempty"`
+	CycleCount       *float64 `json:"cycle_count,omitempty"`
+	VoltageV         *float64 `json:"voltage_v,omitempty"`
+	CurrentA         *float64 `json:"current_a,omitempty"`
 }
 
 // InverterState is VAPD data (eebus-go equivalent of Monitoring of Inverter / MOI).
@@ -106,16 +140,25 @@ type InverterControl struct {
 
 // State is the complete snapshot serialised to the integration.
 type State struct {
-	Service         ServiceInfo     `json:"service"`
-	Connected       bool            `json:"connected"`
-	Connections     []Connection    `json:"connections"`
-	LPC             LPCState        `json:"lpc"`
-	LPP             LPPState        `json:"lpp"`
-	MPC             MPCState        `json:"mpc"`
-	Battery         BatteryState    `json:"battery"`
-	Inverter        InverterState   `json:"inverter"`
-	InverterControl InverterControl `json:"inverter_control"`
-	UpdatedAt       time.Time       `json:"updated_at"`
+	Service     ServiceInfo  `json:"service"`
+	Connected   bool         `json:"connected"`
+	Connections []Connection `json:"connections"`
+	// PrimarySKI is the remote whose data is mirrored into mpc/battery/inverter.
+	PrimarySKI string `json:"primary_ski"`
+	// Devices holds per-remote measurements keyed by SKI. The map is replaced
+	// (copy-on-write) on every change, so snapshots never share mutable state.
+	Devices map[string]DeviceData `json:"devices"`
+	// Site aggregates the devices into whole-home values (see RecomputeSite).
+	Site SiteState `json:"site"`
+	// Distribution reports how an incoming §14a LPC limit is shared out.
+	Distribution    DistributionState `json:"distribution"`
+	LPC             LPCState          `json:"lpc"`
+	LPP             LPPState          `json:"lpp"`
+	MPC             MPCState          `json:"mpc"`
+	Battery         BatteryState      `json:"battery"`
+	Inverter        InverterState     `json:"inverter"`
+	InverterControl InverterControl   `json:"inverter_control"`
+	UpdatedAt       time.Time         `json:"updated_at"`
 }
 
 // Store is a concurrency-safe container around State with a simple fan-out

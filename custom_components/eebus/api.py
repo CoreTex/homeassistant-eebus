@@ -44,6 +44,10 @@ class EebusApiClient:
         """Return the add-on health document (status, ski, version)."""
         return await self._get("/api/health")
 
+    async def get_diagnostics(self) -> dict[str, Any]:
+        """Return state plus the raw SPINE data of the connected devices."""
+        return await self._get("/api/diagnostics")
+
     async def get_state(self) -> dict[str, Any]:
         """Return the full state snapshot."""
         return await self._get("/api/state")
@@ -103,6 +107,54 @@ class EebusApiClient:
 
     async def set_lpp_nominal_max(self, value_w: float) -> None:
         await self._post("/api/lpp/nominal_max", {"value_w": value_w})
+
+    async def simulate_grid_limit(
+        self, value_w: float, active: bool, duration_s: float
+    ) -> None:
+        """Simulate (or end) an incoming §14a limit from the grid operator."""
+        await self._post(
+            "/api/lpc/simulate",
+            {"value_w": value_w, "active": active, "duration_s": duration_s},
+        )
+
+    # --- per-device control ---
+
+    async def set_device_limit(
+        self,
+        ski: str,
+        *,
+        production: bool = False,
+        target_w: float | None = None,
+        active: bool | None = None,
+        duration_s: float | None = None,
+    ) -> None:
+        """Stage (target_w) and/or apply (active) a device limit."""
+        kind = "lpp" if production else "lpc"
+        await self._post(
+            f"/api/devices/{ski}/{kind}",
+            {"target_w": target_w, "active": active, "duration_s": duration_s},
+        )
+
+    async def set_device_failsafe(
+        self, ski: str, power_w: float | None = None, duration_s: float | None = None
+    ) -> None:
+        await self._post(
+            f"/api/devices/{ski}/failsafe",
+            {"power_w": power_w, "duration_s": duration_s},
+        )
+
+    async def set_ev_current(self, ski: str, current_a: float | None) -> None:
+        """Set the charging current (A per phase); None hands control back."""
+        if current_a is None:
+            await self._post(f"/api/devices/{ski}/ev_current", {"release": True})
+        else:
+            await self._post(f"/api/devices/{ski}/ev_current", {"current_a": current_a})
+
+    async def set_flex(self, ski: str, action: str, start_in_s: float = 0) -> None:
+        """Start, pause, resume or stop a heat pump's optional consumption."""
+        await self._post(
+            f"/api/devices/{ski}/flex", {"action": action, "start_in_s": start_in_s}
+        )
 
     async def trust(self, ski: str) -> None:
         await self._post("/api/pairing/trust", {"ski": ski})

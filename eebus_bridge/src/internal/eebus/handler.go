@@ -17,13 +17,17 @@ func (m *Manager) RemoteServiceConnected(_ eebusapi.ServiceInterface, identity s
 		c.Connected = true
 		c.Trusted = true
 	})
+	m.scheduleDistribution()
 }
 
 func (m *Manager) RemoteServiceDisconnected(_ eebusapi.ServiceInterface, identity shipapi.ServiceIdentity) {
 	m.logger.Infof("remote disconnected: %s", identity.SKI)
+	m.forgetEntities(identity.SKI)
 	m.upsertConn(identity.SKI, func(c *store.Connection) {
 		c.Connected = false
 	})
+	m.mirrorLeading()
+	m.scheduleDistribution()
 }
 
 func (m *Manager) VisibleRemoteMdnsServicesUpdated(_ eebusapi.ServiceInterface, entries []shipapi.RemoteMdnsService) {
@@ -61,6 +65,9 @@ func (m *Manager) ServicePairingDetailUpdate(identity shipapi.ServiceIdentity, d
 
 func (m *Manager) ServiceAutoTrusted(_ eebusapi.ServiceInterface, identity shipapi.ServiceIdentity) {
 	m.logger.Infof("auto-trusted %s", identity.SKI)
+	// Persist so the pairing survives a restart even if auto_accept_trust is
+	// switched off again afterwards.
+	m.setPersistedTrust(identity.SKI, true)
 	m.upsertConn(identity.SKI, func(c *store.Connection) { c.Trusted = true })
 }
 

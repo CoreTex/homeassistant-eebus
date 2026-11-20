@@ -1,0 +1,107 @@
+configuration:
+  inverter_ski:
+    name: Leading inverter (SKI)
+    description: >-
+      SKI of your main inverter (40 hex characters). It feeds the bridge-level
+      inverter values and is the target of the bridge-level inverter limits.
+      Leave empty to use the first inverter found.
+  trusted_skis:
+    name: Trusted devices (SKIs)
+    description: >-
+      SKIs of EEBUS devices that may pair with the bridge (inverter, wallboxes,
+      heat pumps, control box). Devices can also be trusted in Home Assistant
+      with the "Trusted" switch of each device.
+  auto_accept_trust:
+    name: Accept every pairing request
+    description: >-
+      Trust any device that asks to pair. Switch on only while pairing a new
+      device, then off again; accepted devices stay trusted.
+  enable_eg_control:
+    name: Control devices (Energy Guard)
+    description: >-
+      Lets the bridge send consumption/production limits to devices: dim
+      wallboxes and heat pumps (§14a), charge modes of LPC-only wallboxes,
+      inverter limits, and start heat pumps that offer optional consumption
+      (OHPCF, e.g. on PV surplus). Required for most control features.
+  distribute_lpc:
+    name: Share grid operator limit (§14a)
+    description: >-
+      When the grid operator's control box limits the home, share that limit
+      by demand among the connected wallboxes and heat pumps.
+  distribute_lpc_inverters:
+    name: Include storage in §14a sharing
+    description: >-
+      Also give inverters with a battery a share (limits charging the battery
+      from the grid). Enable if your storage is registered with the grid
+      operator under §14a.
+  enable_lpc_simulation:
+    name: Allow §14a simulation (testing)
+    description: >-
+      Allows the service "Simulate grid operator limit" to test the whole §14a
+      chain without a control box. Refused while a real control box is
+      connected or a real limit is active.
+  enable_lpc:
+    name: Receive consumption limits (LPC)
+    description: >-
+      The bridge accepts consumption limits from the grid operator's control
+      box (§14a) and shows them in Home Assistant.
+  enable_lpp:
+    name: Receive feed-in limits (LPP)
+    description: >-
+      The bridge accepts feed-in (production) limits from the grid operator's
+      control box.
+  auto_approve_limits:
+    name: Accept limits automatically
+    description: >-
+      Accept incoming grid operator limits without confirmation (recommended;
+      §14a limits must be followed).
+  lpc_nominal_max_w:
+    name: Nominal consumption power (W)
+    description: >-
+      Maximum consumption of the controllable devices reported to the grid
+      operator (§14a). 0 = not set.
+  lpp_nominal_max_w:
+    name: Nominal feed-in power (W)
+    description: Maximum feed-in power reported to the grid operator. 0 = not set.
+  enable_mpc:
+    name: Power monitoring (MPC)
+    description: Read power, energy, current and voltage of devices.
+  enable_inverter:
+    name: Inverter monitoring (MOI, VAPD)
+    description: Read inverter AC values and PV data.
+  enable_battery:
+    name: Battery monitoring (MOB, VABD)
+    description: Read battery power, state of charge, health and energy.
+  enable_mgcp:
+    name: Grid meter monitoring (MGCP)
+    description: Read grid power and energy from a smart meter or gateway.
+  enable_ev:
+    name: Wallbox and vehicle (EV use cases)
+    description: >-
+      Vehicle state, charging power, state of charge and charging-current
+      control for wallboxes that support it.
+  device_brand:
+    name: Brand shown to other devices
+    description: Name the bridge uses on the EEBUS network.
+  device_model:
+    name: Model shown to other devices
+    description: Model the bridge uses on the EEBUS network.
+  device_serial:
+    name: Serial number shown to other devices
+    description: >-
+      Leave empty for an automatic value. Do not use the serial number of
+      another device.
+  eebus_port:
+    name: EEBUS port
+    description: TCP port of the EEBUS (SHIP) server. Change only on conflicts.
+  api_port:
+    name: API port
+    description: Port of the local API used by the Home Assistant integration.
+  api_token:
+    name: API token
+    description: >-
+      Optional password for the local API. Enter the same token in the
+      integration.
+  log_level:
+    name: Log level
+    description: "Use debug or trace only for troubleshooting."

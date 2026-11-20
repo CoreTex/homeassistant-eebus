@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/CoreTex/homeassistant-eebus/eebus_bridge/internal/store"
 )
@@ -19,6 +20,13 @@ type stubController struct {
 	lastConsW   float64
 	lastActive  bool
 	lastTrusted string
+
+	lastSKI      string
+	lastTarget   *float64
+	lastActivePt *bool
+	lastCurrent  *float64
+	lastAction   string
+	lastStartIn  time.Duration
 }
 
 func (s *stubController) maybeFail(name string) error {
@@ -65,6 +73,37 @@ func (s *stubController) SetLPPFailsafe(*float64, *float64) error {
 }
 func (s *stubController) SetLPCNominalMax(float64) error { return s.maybeFail("SetLPCNominalMax") }
 func (s *stubController) SetLPPNominalMax(float64) error { return s.maybeFail("SetLPPNominalMax") }
+
+func (s *stubController) SetDeviceConsumptionLimit(ski string, t *float64, a *bool, _ *float64) error {
+	s.lastSKI, s.lastTarget, s.lastActivePt = ski, t, a
+	return s.maybeFail("SetDeviceConsumptionLimit")
+}
+func (s *stubController) SetDeviceProductionLimit(ski string, t *float64, a *bool, _ *float64) error {
+	s.lastSKI, s.lastTarget, s.lastActivePt = ski, t, a
+	return s.maybeFail("SetDeviceProductionLimit")
+}
+func (s *stubController) SetDeviceFailsafe(ski string, _, _ *float64) error {
+	s.lastSKI = ski
+	return s.maybeFail("SetDeviceFailsafe")
+}
+func (s *stubController) SetEVCurrent(ski string, c *float64) error {
+	s.lastSKI, s.lastCurrent = ski, c
+	return s.maybeFail("SetEVCurrent")
+}
+
+func (s *stubController) SetFlex(ski, action string, startIn time.Duration) error {
+	s.lastSKI, s.lastAction, s.lastStartIn = ski, action, startIn
+	return s.maybeFail("SetFlex")
+}
+
+func (s *stubController) SimulateGridLimit(v float64, a bool, _ float64) error {
+	s.lastConsW, s.lastActive = v, a
+	return s.maybeFail("SimulateGridLimit")
+}
+
+func (s *stubController) SpineDump() any {
+	return []map[string]string{{"ski": "abc"}}
+}
 
 func newTestServer(token string) (*httptest.Server, *stubController, *store.Store) {
 	st := store.New()
@@ -216,4 +255,85 @@ func contains(haystack []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+func TestDeviceEndpoints(t *testing.T) {
+	ts, ctrl, _ := newTestServer("")
+	defer ts.Close()
+	ski := "4ff37d1e374a006d0de80260256b82de3d745fa4"
+
+	resp := post(t, ts, "/api/devices/"+ski+"/lpc", "", `{"target_w": 4200}`)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("lpc: status %d", resp.StatusCode)
+	}
+	if ctrl.lastSKI != ski || ctrl.lastTarget == nil || *ctrl.lastTarget != 4200 || ctrl.lastActivePt != nil {
+		t.Fatalf("lpc args: ski=%s target=%v active=%v", ctrl.lastSKI, ctrl.lastTarget, ctrl.lastActivePt)
+	}
+
+	resp = post(t, ts, "/api/devices/"+ski+"/lpp", "", `{"active": true}`)
+	if resp.StatusCode != http.StatusOK || ctrl.lastActivePt == nil || !*ctrl.lastActivePt || ctrl.lastTarget != nil {
+		t.Fatalf("lpp: status %d active=%v target=%v", resp.StatusCode, ctrl.lastActivePt, ctrl.lastTarget)
+	}
+
+	resp = post(t, ts, "/api/devices/"+ski+"/ev_current", "", `{"current_a": 10}`)
+	if resp.StatusCode != http.StatusOK || ctrl.lastCurrent == nil || *ctrl.lastCurrent != 10 {
+		t.Fatalf("ev_current: status %d current=%v", resp.StatusCode, ctrl.lastCurrent)
+	}
+	resp = post(t, ts, "/api/devices/"+ski+"/ev_current", "", `{"release": true}`)
+	if resp.StatusCode != http.StatusOK || ctrl.lastCurrent != nil {
+		t.Fatalf("release: status %d current=%v", resp.StatusCode, ctrl.lastCurrent)
+	}
+	resp = post(t, ts, "/api/devices/"+ski+"/ev_current", "", `{}`)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("empty ev_current should be 400, got %d", resp.StatusCode)
+	}
+
+	resp = post(t, ts, "/api/devices/"+ski+"/flex", "", `{"action": "start", "start_in_s": 90}`)
+	if resp.StatusCode != http.StatusOK || ctrl.lastAction != "start" || ctrl.lastStartIn != 90*time.Second {
+		t.Fatalf("flex: status %d action=%q startIn=%v", resp.StatusCode, ctrl.lastAction, ctrl.lastStartIn)
+	}
+	for _, body := range []string{`{}`, `{"action": "start", "start_in_s": -1}`} {
+		if resp = post(t, ts, "/api/devices/"+ski+"/flex", "", body); resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("flex %s should be 400, got %d", body, resp.StatusCode)
+		}
+	}
+
+	resp = post(t, ts, "/api/devices/"+ski+"/failsafe", "", `{"power_w": 11000}`)
+	if resp.StatusCode != http.StatusOK || ctrl.lastSKI != ski {
+		t.Fatalf("failsafe: status %d", resp.StatusCode)
+	}
+
+	ctrl.failNext = true
+	resp = post(t, ts, "/api/devices/"+ski+"/lpc", "", `{"active": false}`)
+	if resp.StatusCode == http.StatusOK {
+		t.Fatal("controller error must not return 200")
+	}
+}
+
+func TestDiagnosticsEndpoint(t *testing.T) {
+	ts, _, _ := newTestServer("secret")
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/api/diagnostics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("diagnostics must require the token, got %d", resp.StatusCode)
+	}
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/api/diagnostics", nil)
+	req.Header.Set("Authorization", "Bearer secret")
+	resp, err = http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var body map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if body["version"] != "test-version" || body["state"] == nil || body["spine"] == nil {
+		t.Errorf("unexpected diagnostics: %v", body)
+	}
 }
