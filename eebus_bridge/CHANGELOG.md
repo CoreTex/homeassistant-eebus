@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0
+
+First stable release since 0.1.1: all EEBUS device classes, pairing from
+Home Assistant, wallbox charge modes, §14a sharing, MOI/MOB, heat pump PV
+surplus (OHPCF). Details: CHANGELOG.md in the repository.
+
 ## 0.6.0-dev
 
 - Heat pumps: optional consumption (OHPCF) – report the offer, start, pause,

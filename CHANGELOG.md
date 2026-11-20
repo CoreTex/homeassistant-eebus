@@ -8,6 +8,29 @@ and restart Home Assistant after updating the integration.
 `https://github.com/CoreTex/homeassistant-eebus#dev`, integration via HACS with
 beta versions enabled).
 
+## 0.6.0 – stable
+
+First stable release since 0.1.1. It contains everything from 0.2.0-dev to
+0.6.0-dev below. Highlights:
+
+- **Every EEBUS device class:** inverters (several, with a leading one),
+  batteries, wallboxes, heat pumps, grid meters and control boxes are paired,
+  classified and get their own device in Home Assistant.
+- **Pairing in Home Assistant:** trust and forget devices with a switch, no
+  add-on restart needed.
+- **Wallboxes:** charge modes incl. PV-surplus charging, vehicle data where
+  the wallbox reports it.
+- **§14a:** grid operator limits are shared by demand among wallboxes, heat
+  pumps and (optionally) inverter batteries; simulation for testing.
+- **Inverter and battery monitoring** via MOI/MOB.
+- **Heat pumps:** use PV surplus (OHPCF), calculated energy.
+- **Dashboard cards** for every device type.
+- Clearer settings, documentation, Docker setup without add-ons, anonymised
+  diagnostics.
+
+**Updating from 0.1.1:** no settings were removed or renamed. Update the
+add-on and the integration and restart Home Assistant. Your pairing is kept.
+
 ## 0.6.0-dev – 2026-11-20
 
 ### Added
