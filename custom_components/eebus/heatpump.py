@@ -140,6 +140,7 @@ class FlexController:
     enabled: dict[str, bool] = field(default_factory=dict)
     runtime: dict[str, FlexRuntime] = field(default_factory=dict)
     _unsub: Callable[[], None] | None = None
+    _warned_no_grid: bool = False
 
     @callback
     def async_start(self) -> None:
@@ -186,6 +187,16 @@ class FlexController:
             return
         settings = charge._settings()  # noqa: SLF001 - shared tuning
         grid = charge.grid_power_w()
+        if grid is None and any(self.enabled.values()):
+            if not self._warned_no_grid:
+                _LOGGER.warning(
+                    "Use PV surplus is on, but there is no grid power value: select "
+                    "your grid power sensor in the EEBUS integration options "
+                    "(Configure), or connect a grid meter via EEBUS"
+                )
+                self._warned_no_grid = True
+        elif grid is not None:
+            self._warned_no_grid = False
         now = time.monotonic()
         for ski, hp in self.heat_pumps().items():
             if not self.enabled.get(ski):

@@ -8,6 +8,21 @@ and restart Home Assistant after updating the integration.
 `https://github.com/CoreTex/homeassistant-eebus#dev`, integration via HACS with
 beta versions enabled).
 
+## 0.6.2-dev – 2026-11-23
+
+### Fixed
+- **Bosch heat pumps: error 1240 after a bridge restart** (#7). Right after
+  connecting the bridge could not send the limit yet ("data not available")
+  and did not retry reliably, and some heat pumps reject a deactivated limit
+  at that moment. The bridge now retries as soon as the heat pump's limit
+  data has arrived and, if the deactivated limit is rejected, sends an active
+  limit at the heat pump's nominal maximum (which does not limit anything).
+  You no longer need to set a consumption limit by hand.
+
+### Changed
+- *Use PV surplus* logs a warning when no grid power value is available
+  (select your grid power sensor in the integration options).
+
 ## 0.6.1-dev – 2026-11-20
 
 ### Fixed

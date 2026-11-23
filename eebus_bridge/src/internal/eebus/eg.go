@@ -86,6 +86,9 @@ func (m *Manager) onEG(kind LimitKind, device spineapi.DeviceRemoteInterface, en
 		m.scheduleDistribution()
 	default:
 		m.readBackLimit(kind, ski, entity)
+		if kind == KindLPC {
+			m.takeLPCControl(ski) // retry once the limit data is there
+		}
 	}
 }
 
@@ -99,33 +102,95 @@ func (m *Manager) egScenarios(kind LimitKind, entity spineapi.EntityRemoteInterf
 	return nil
 }
 
-// takeLPCControl sends a heat pump that offers OHPCF the current consumption
-// limit (normally a deactivated one) once after it connected.
+// takeLPCControl sends a heat pump that offers OHPCF a consumption limit once
+// after it connected.
 //
 // Heat pumps such as the Bosch CS5800i/CS6800i only follow an energy manager
 // that actually controls them via LPC: a heat pump that gets heartbeats but
 // never a limit stays in its init/failsafe state, shows a communication error
-// (Bosch: 1240) and does not start on OHPCF. Other devices are left alone, as
-// they may be controlled by another energy manager.
+// (Bosch: 1240) and does not start on OHPCF. Without a user or §14a limit the
+// bridge sends a deactivated limit; some heat pumps reject that right after
+// connecting (#7), then an active limit at the nominal maximum is sent, which
+// does not limit anything. Other devices are left alone, as they may be
+// controlled by another energy manager.
+//
+// It is called on every LPC/OHPCF event, so a write that is not possible yet
+// (limit descriptions not read) is retried with the next event.
 func (m *Manager) takeLPCControl(ski string) {
 	m.mu.Lock()
 	_, flex := m.flexEntities[ski]
-	_, lpc := m.egEntities[KindLPC][ski]
+	entity, lpc := m.egEntities[KindLPC][ski]
 	done := m.lpcControlled[ski]
 	if flex && lpc && !done {
 		m.lpcControlled[ski] = true
 	}
 	m.mu.Unlock()
-	if !flex || !lpc || done {
+	if !flex || !lpc || done || m.egLPC == nil {
 		return
 	}
-	m.logger.Infof("heat pump %s: sending the current consumption limit (bridge is its energy manager)", ski)
-	if err := m.applyLimit(KindLPC, ski, true); err != nil {
-		m.logger.Errorf("sending the consumption limit to %s: %v", ski, err)
+
+	ctl := store.DeviceControl{}
+	if d := m.store.Snapshot().Devices[ski]; d.Control != nil {
+		ctl = *d.Control
+	}
+	var err error
+	if _, active := effectiveLimit(ctl.LPCActive, ctl.LPCTargetW, ctl.DistributedLimitW); active || entity == nil {
+		err = m.applyLimit(KindLPC, ski, true)
+	} else {
+		limit := ucapi.LoadLimit{Value: m.lpcNominal(entity, ctl), IsChangeable: true}
+		_, err = m.egLPC.WriteConsumptionLimit(entity, limit, m.takeoverResultCB(ski, entity))
+	}
+	if err != nil {
 		m.mu.Lock()
 		delete(m.lpcControlled, ski)
 		m.mu.Unlock()
+		if errors.Is(err, eebusapi.ErrDataNotAvailable) {
+			m.logger.Debugf("heat pump %s: limit not sent yet, waiting for its limit data", ski)
+			return
+		}
+		m.logger.Errorf("sending the consumption limit to %s: %v", ski, err)
+		return
 	}
+	m.logger.Infof("heat pump %s: sent the consumption limit (bridge is its energy manager)", ski)
+}
+
+// takeoverResultCB falls back to an active limit at the nominal maximum when
+// the heat pump rejects the deactivated one.
+func (m *Manager) takeoverResultCB(ski string, entity spineapi.EntityRemoteInterface) func(model.ResultDataType, model.MsgCounterType) {
+	return func(r model.ResultDataType, _ model.MsgCounterType) {
+		if r.ErrorNumber == nil || *r.ErrorNumber == model.ErrorNumberTypeNoError {
+			return
+		}
+		ctl := store.DeviceControl{}
+		if d := m.store.Snapshot().Devices[ski]; d.Control != nil {
+			ctl = *d.Control
+		}
+		nominal := m.lpcNominal(entity, ctl)
+		if nominal <= 0 {
+			m.logger.Errorf("heat pump %s rejected the deactivated limit (code=%v) and reports no nominal power", ski, *r.ErrorNumber)
+			return
+		}
+		m.logger.Infof("heat pump %s rejected the deactivated limit (code=%v), sending %.0f W (its nominal maximum) instead", ski, *r.ErrorNumber, nominal)
+		limit := ucapi.LoadLimit{Value: nominal, IsActive: true, IsChangeable: true}
+		go func() { // not from within the result handler
+			if _, err := m.egLPC.WriteConsumptionLimit(entity, limit, m.writeResultCB(ski, KindLPC)); err != nil {
+				m.logger.Errorf("sending the consumption limit to %s: %v", ski, err)
+			}
+		}()
+	}
+}
+
+// lpcNominal returns the nominal maximum consumption of a device, 0 if unknown.
+func (m *Manager) lpcNominal(entity spineapi.EntityRemoteInterface, ctl store.DeviceControl) float64 {
+	if entity != nil && m.egLPC != nil {
+		if v, err := m.egLPC.ConsumptionNominalMax(entity); err == nil && v > 0 {
+			return v
+		}
+	}
+	if ctl.LPCNominalMaxW != nil {
+		return *ctl.LPCNominalMaxW
+	}
+	return 0
 }
 
 // readBackLimit stores the limit the device itself reports.

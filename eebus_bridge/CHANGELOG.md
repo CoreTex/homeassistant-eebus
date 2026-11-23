@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.2-dev
+
+- Heat pumps: retry the initial LPC limit once the limit data is available;
+  if a deactivated limit is rejected, send an active limit at the nominal
+  maximum instead (#7).
+
 ## 0.6.1-dev
 
 - Heat pumps offering OHPCF get the current (normally deactivated) LPC limit
