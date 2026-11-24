@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"time"
 
 	"github.com/CoreTex/homeassistant-eebus/eebus_bridge/internal/store"
 
@@ -155,10 +156,15 @@ func (m *Manager) takeLPCControl(ski string) {
 }
 
 // takeoverResultCB falls back to an active limit at the nominal maximum when
-// the heat pump rejects the deactivated one.
+// the heat pump rejects the deactivated one. If that is rejected too (some
+// heat pumps reject every write for a while after connecting, #7), the
+// takeover is retried later with a growing delay.
 func (m *Manager) takeoverResultCB(ski string, entity spineapi.EntityRemoteInterface) func(model.ResultDataType, model.MsgCounterType) {
 	return func(r model.ResultDataType, _ model.MsgCounterType) {
 		if r.ErrorNumber == nil || *r.ErrorNumber == model.ErrorNumberTypeNoError {
+			m.mu.Lock()
+			delete(m.lpcRetries, ski)
+			m.mu.Unlock()
 			return
 		}
 		ctl := store.DeviceControl{}
@@ -168,16 +174,63 @@ func (m *Manager) takeoverResultCB(ski string, entity spineapi.EntityRemoteInter
 		nominal := m.lpcNominal(entity, ctl)
 		if nominal <= 0 {
 			m.logger.Errorf("heat pump %s rejected the deactivated limit (code=%v) and reports no nominal power", ski, *r.ErrorNumber)
+			m.retryTakeover(ski, entity)
 			return
 		}
 		m.logger.Infof("heat pump %s rejected the deactivated limit (code=%v), sending %.0f W (its nominal maximum) instead", ski, *r.ErrorNumber, nominal)
 		limit := ucapi.LoadLimit{Value: nominal, IsActive: true, IsChangeable: true}
 		go func() { // not from within the result handler
-			if _, err := m.egLPC.WriteConsumptionLimit(entity, limit, m.writeResultCB(ski, KindLPC)); err != nil {
+			_, err := m.egLPC.WriteConsumptionLimit(entity, limit, func(r model.ResultDataType, _ model.MsgCounterType) {
+				if r.ErrorNumber == nil || *r.ErrorNumber == model.ErrorNumberTypeNoError {
+					m.mu.Lock()
+					delete(m.lpcRetries, ski)
+					m.mu.Unlock()
+					return
+				}
+				m.logger.Infof("heat pump %s rejected the nominal limit too (code=%v)", ski, *r.ErrorNumber)
+				m.retryTakeover(ski, entity)
+			})
+			if err != nil {
 				m.logger.Errorf("sending the consumption limit to %s: %v", ski, err)
+				m.retryTakeover(ski, entity)
 			}
 		}()
 	}
+}
+
+// maxTakeoverRetries limits the retries: 15 s, 30 s, 1, 2, 4 and 8 min.
+const maxTakeoverRetries = 6
+
+// takeoverDelay is the wait before retry n (1-based); a variable for tests.
+var takeoverDelay = func(n int) time.Duration { return 15 * time.Second << (n - 1) }
+
+// retryTakeover schedules another takeLPCControl while the heat pump stays
+// connected.
+func (m *Manager) retryTakeover(ski string, entity spineapi.EntityRemoteInterface) {
+	m.mu.Lock()
+	n := m.lpcRetries[ski] + 1
+	if n > maxTakeoverRetries || m.egEntities[KindLPC][ski] != entity {
+		m.mu.Unlock()
+		if n > maxTakeoverRetries {
+			m.logger.Errorf("heat pump %s keeps rejecting the consumption limit; giving up until it reconnects", ski)
+		}
+		return
+	}
+	m.lpcRetries[ski] = n
+	m.mu.Unlock()
+	d := takeoverDelay(n)
+	m.logger.Infof("heat pump %s: retrying the consumption limit in %s", ski, d)
+	time.AfterFunc(d, func() {
+		m.mu.Lock()
+		current := m.egEntities[KindLPC][ski] == entity
+		if current {
+			delete(m.lpcControlled, ski)
+		}
+		m.mu.Unlock()
+		if current {
+			m.takeLPCControl(ski)
+		}
+	})
 }
 
 // lpcNominal returns the nominal maximum consumption of a device, 0 if unknown.
