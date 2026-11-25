@@ -93,7 +93,7 @@ as your EEBUS devices – same image as the add-on, configured with an
 
 ```bash
 docker run -d --name eebus-bridge --restart unless-stopped --network host \
-  -v /opt/eebus-bridge:/data ghcr.io/coretex/amd64-addon-eebus_bridge:0.6.2-dev
+  -v /opt/eebus-bridge:/data ghcr.io/coretex/amd64-addon-eebus_bridge:0.6.3-dev
 ```
 
 Use `aarch64` instead of `amd64` on ARM (e.g. Raspberry Pi). Details, a

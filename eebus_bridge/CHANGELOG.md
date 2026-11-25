@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.3-dev
+
+- Heat pumps: retry a rejected initial LPC limit with backoff (#7).
+
 ## 0.6.2-dev
 
 - Heat pumps: retry the initial LPC limit once the limit data is available;

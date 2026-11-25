@@ -8,6 +8,14 @@ and restart Home Assistant after updating the integration.
 `https://github.com/CoreTex/homeassistant-eebus#dev`, integration via HACS with
 beta versions enabled).
 
+## 0.6.3-dev – 2026-11-25
+
+### Fixed
+- **Heat pumps that reject every limit right after connecting** (Bosch, #7):
+  the bridge now keeps retrying the consumption limit with a growing delay
+  (15 s, 30 s, 1, 2, 4, 8 min) until it is accepted or the heat pump
+  disconnects, instead of giving up after the second attempt.
+
 ## 0.6.2-dev – 2026-11-23
 
 ### Fixed
