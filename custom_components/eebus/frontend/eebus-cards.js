@@ -9,7 +9,7 @@
  * any entity IDs and languages. No external libraries.
  */
 
-const VERSION = "0.6.6-dev";
+const VERSION = "0.6.7-dev";
 
 // --- semantic colours (one meaning each, readable on light and dark themes)
 const C = {

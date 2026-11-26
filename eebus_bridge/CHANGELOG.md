@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.7-dev
+
+- No add-on changes; version aligned with the integration.
+
 ## 0.6.6-dev
 
 - No add-on changes; version aligned with the integration.

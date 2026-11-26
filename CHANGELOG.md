@@ -8,6 +8,12 @@ and restart Home Assistant after updating the integration.
 `https://github.com/CoreTex/homeassistant-eebus#dev`, integration via HACS with
 beta versions enabled).
 
+## 0.6.7-dev – 2026-11-26
+
+### Changed
+- *Use PV surplus* for heat pumps logs on every cycle why it does not act
+  (state, requested power, surplus, grid power) at debug level (#4).
+
 ## 0.6.6-dev – 2026-11-26
 
 ### Changed
