@@ -52,6 +52,7 @@ class FlexRuntime:
     running_since: float | None = None
     paused_since: float | None = None
     last_state: str | None = None
+    last_surplus_w: float | None = None  # for the debug log
 
 
 @dataclass(frozen=True)
@@ -99,6 +100,7 @@ def decide(
     # Surplus without the heat pump's own draw (it is part of the grid power).
     own = max(0.0, hp.measured_w or 0.0) if hp.state == "running" else 0.0
     surplus = own - grid_power_w - reserve_w
+    rt.last_surplus_w = surplus
 
     if hp.state in ("available", "paused"):
         rt.below_since = None
@@ -207,6 +209,12 @@ class FlexController:
                 settings.stop_delay_s, rt, now,
             )
             if action is None:
+                _LOGGER.debug(
+                    "heat pump %s: no action (state %s, requested %.0f W, surplus %s W, grid %s W)",
+                    ski, hp.state or "-", hp.requested_w,
+                    None if rt.last_surplus_w is None else round(rt.last_surplus_w),
+                    grid,
+                )
                 continue
             _LOGGER.debug("heat pump %s: %s (grid %s W)", ski, action, grid)
             try:
