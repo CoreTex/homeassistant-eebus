@@ -8,6 +8,15 @@ and restart Home Assistant after updating the integration.
 `https://github.com/CoreTex/homeassistant-eebus#dev`, integration via HACS with
 beta versions enabled).
 
+## 0.6.6-dev – 2026-11-26
+
+### Changed
+- **Wallboxes controlled only by a power limit** (e.g. KATHREIN AC40): the
+  charge mode has a `control` attribute (`lpc` or `opev`), and the wallbox
+  card explains in *Off*, *PV* and *Min + PV* that pausing depends on the
+  wallbox's own settings. The AC40 accepts and reports a 0 W limit but keeps
+  charging at about 2.6 kW unless it is configured to pause.
+
 ## 0.6.5-dev – 2026-11-26
 
 ### Fixed

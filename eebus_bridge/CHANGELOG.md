@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.6-dev
+
+- No add-on changes; version aligned with the integration.
+
 ## 0.6.5-dev
 
 - spine-go updated to current dev: partial power-sequence (OHPCF) updates
