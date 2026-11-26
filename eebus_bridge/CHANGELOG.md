@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.5-dev
+
+- spine-go updated to current dev: partial power-sequence (OHPCF) updates
+  are merged instead of rejected, first heartbeat right after connecting,
+  stale device state dropped on reconnect (#7).
+
 ## 0.6.4-dev
 
 - Managed heat pumps get "no limit" as an active LPC limit at their nominal

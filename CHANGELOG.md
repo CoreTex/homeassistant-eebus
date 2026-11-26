@@ -8,6 +8,22 @@ and restart Home Assistant after updating the integration.
 `https://github.com/CoreTex/homeassistant-eebus#dev`, integration via HACS with
 beta versions enabled).
 
+## 0.6.5-dev – 2026-11-26
+
+### Fixed
+- **Partial OHPCF updates from heat pumps are merged** (#7). Heat pumps such
+  as the Bosch CS5800i send partial notifies of their power sequences; the
+  bridge answered each with an error (`partial updates are not supported for
+  type 'SmartEnergyManagementPsDataType'`) and had to re-read the full data.
+  spine-go is updated to its current dev version, which merges them
+  (enbility/spine-go#80, #104 – the same fix evcc picked up).
+
+### Changed
+- The spine-go update also sends the first heartbeat right after connecting,
+  drops stale device state when a device reconnects, and brings several
+  discovery and binding fixes. It affects all devices – please report
+  anything unusual.
+
 ## 0.6.4-dev – 2026-11-26
 
 ### Fixed
