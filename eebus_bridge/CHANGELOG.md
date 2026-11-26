@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.4-dev
+
+- Managed heat pumps get "no limit" as an active LPC limit at their nominal
+  maximum, so Bosch heat pumps leave failsafe (error 1240) (#7).
+
 ## 0.6.3-dev
 
 - Heat pumps: retry a rejected initial LPC limit with backoff (#7).

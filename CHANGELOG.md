@@ -8,6 +8,16 @@ and restart Home Assistant after updating the integration.
 `https://github.com/CoreTex/homeassistant-eebus#dev`, integration via HACS with
 beta versions enabled).
 
+## 0.6.4-dev – 2026-11-26
+
+### Fixed
+- **Bosch heat pumps stay in error 1240 after a bridge restart** (#7). 1240
+  means "communication to the energy manager lost" (failsafe); the heat pump
+  only leaves it on an *active* limit. Heat pumps the bridge manages (LPC +
+  OHPCF) now get "no limit" as an active limit at their nominal maximum –
+  after connecting and when you switch your own limit off. This does not
+  restrict the heat pump. The deactivated limit is only the fallback.
+
 ## 0.6.3-dev – 2026-11-25
 
 ### Fixed
