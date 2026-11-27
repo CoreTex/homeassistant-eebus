@@ -1,0 +1,278 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "EEBUS Bridge",
+        "description": "Adresse der EEBUS Bridge. Die Bridge ist ein eigener Teil: Installiere das Add-on „EEBUS Bridge“ (Einstellungen → Add-ons → Add-on-Store, Repository {repository_url}) und starte es – HACS installiert nur diese Integration. Mit dem Add-on die IP deines Home Assistant und Port 7050 verwenden; läuft die Bridge im Docker, die IP des Docker-Hosts.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "token": "API-Token (optional)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unter dieser Adresse antwortet keine EEBUS Bridge. Prüfe, ob das Add-on „EEBUS Bridge“ installiert und gestartet ist (HACS installiert es nicht), und verwende die IP deines Home Assistant (nicht den Namen) und Port 7050. Falls im Add-on ein API-Token gesetzt ist, trage ihn hier ein.",
+      "no_ski": "Das Add-on meldet noch keinen SKI. Bitte warten, bis es vollständig gestartet ist."
+    },
+    "abort": {
+      "already_configured": "Diese EEBUS Bridge ist bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "PV-Überschussladen",
+        "description": "Einstellungen für die Lademodi der Wallboxen. Der Netzleistungs-Sensor muss bei Bezug positiv sein (sonst Invertierung aktivieren). Leer lassen, um einen per EEBUS (MGCP) angebundenen Netzzähler zu verwenden.",
+        "data": {
+          "grid_power_entity": "Sensor Netzleistung",
+          "grid_power_inverted": "Sensor ist bei Einspeisung positiv",
+          "surplus_reserve_w": "Reserve für den Haushalt",
+          "min_charge_power_w": "Minimale Ladeleistung",
+          "max_charge_power_w": "Maximale Ladeleistung (falls die Wallbox keine meldet)",
+          "start_delay_s": "Startverzögerung (PV-Modus)",
+          "stop_delay_s": "Stoppverzögerung (PV-Modus)",
+          "control_interval_s": "Regelintervall"
+        },
+        "data_description": {
+          "grid_power_entity": "Leistungssensor deines Netzanschlusses, positiv bei Bezug (z. B. aus der Wechselrichter- oder Smart-Meter-Integration). Leer lassen, um einen per EEBUS angebundenen Netzzähler zu verwenden.",
+          "grid_power_inverted": "Aktivieren, wenn der Sensor bei Einspeisung positiv ist.",
+          "surplus_reserve_w": "Leistung, die beim PV-Überschussladen für den Haushalt zurückgehalten wird.",
+          "min_charge_power_w": "Darunter kann das Auto nicht laden (6 A dreiphasig = 4140 W, einphasig = 1380 W).",
+          "max_charge_power_w": "Wird verwendet, wenn die Wallbox ihr Maximum nicht meldet (11 kW = 16 A dreiphasig).",
+          "start_delay_s": "PV-Modus: So lange muss der Überschuss die Mindestleistung erreichen, bevor das Laden startet.",
+          "stop_delay_s": "PV-Modus: So lange wird nach Wegfall des Überschusses mit Mindestleistung weitergeladen.",
+          "control_interval_s": "Wie oft die Lademodi neu berechnet werden."
+        }
+      }
+    }
+  },
+  "services": {
+    "set_consumption_limit": {
+      "name": "Verbrauchslimit setzen",
+      "description": "LPC-Verbrauchslimit an den führenden Wechselrichter senden (Home Assistant als Energy Guard).",
+      "fields": {
+        "value_w": { "name": "Limit", "description": "Verbrauchslimit in Watt." },
+        "active": { "name": "Aktiv", "description": "Ob das Limit aktiv ist." },
+        "duration_s": { "name": "Dauer", "description": "Dauer in Sekunden (0 = unbegrenzt)." }
+      }
+    },
+    "set_production_limit": {
+      "name": "Erzeugungslimit setzen",
+      "description": "LPP-Erzeugungslimit an den führenden Wechselrichter senden (Home Assistant als Energy Guard).",
+      "fields": {
+        "value_w": { "name": "Limit", "description": "Erzeugungslimit in Watt (positiver Wert)." },
+        "active": { "name": "Aktiv", "description": "Ob das Limit aktiv ist." },
+        "duration_s": { "name": "Dauer", "description": "Dauer in Sekunden (0 = unbegrenzt)." }
+      }
+    },
+    "trust_device": {
+      "name": "Gerät vertrauen",
+      "description": "Einem EEBUS-Gerät per SKI vertrauen, damit es sich mit der Bridge koppeln kann. Das Vertrauen wird vom Add-on gespeichert.",
+      "fields": {
+        "ski": { "name": "SKI", "description": "Der 40-stellige hexadezimale SKI des Geräts." }
+      }
+    },
+    "forget_device": {
+      "name": "Gerät vergessen",
+      "description": "Vertrauen für ein EEBUS-Gerät entfernen. SKIs aus der Add-on-Konfiguration werden nach einem Neustart wieder vertraut.",
+      "fields": {
+        "ski": { "name": "SKI", "description": "Der 40-stellige hexadezimale SKI des Geräts." }
+      }
+    },
+    "set_device_limit": {
+      "name": "Gerätelimit setzen",
+      "description": "Verbrauchs- (LPC) oder Erzeugungslimit (LPP) für ein EEBUS-Gerät setzen und/oder anwenden, z. B. Wärmepumpe oder Wallbox dimmen. Erfordert enable_eg_control im Add-on.",
+      "fields": {
+        "device_id": { "name": "Gerät", "description": "Das EEBUS-Gerät (Wechselrichter, Wallbox, Wärmepumpe, ...)." },
+        "ski": { "name": "SKI", "description": "Alternativ der 40-stellige SKI des Geräts." },
+        "kind": { "name": "Art", "description": "consumption (LPC) oder production (LPP)." },
+        "value_w": { "name": "Limit", "description": "Limit in Watt. Weglassen, um den Wert zu behalten." },
+        "active": { "name": "Aktiv", "description": "Limit anwenden (true) oder aufheben (false). Weglassen, um nur den Wert vorzumerken." },
+        "duration_s": { "name": "Dauer", "description": "Dauer in Sekunden (0 = bis zur Aufhebung)." }
+      }
+    },
+    "simulate_grid_limit": {
+      "name": "Netzbetreiber-Limit simulieren (§14a)",
+      "description": "NUR ZUM TESTEN: ein eingehendes §14a-Verbrauchslimit des Netzbetreibers simulieren, als hätte eine Steuerbox es gesendet. Läuft durch die normale Verteilung und endet nach der Dauer. Erfordert enable_lpc_simulation im Add-on und wird verweigert, solange eine echte Steuerbox verbunden oder ein echtes Limit aktiv ist.",
+      "fields": {
+        "value_w": { "name": "Limit", "description": "Gesamt-Verbrauchslimit in Watt." },
+        "active": { "name": "Aktiv", "description": "Simulation starten (true) oder beenden (false)." },
+        "duration_s": { "name": "Dauer", "description": "Dauer in Sekunden (0 = bis zum Beenden)." }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "consumption_limit": { "name": "Netzbetreiber-Limit Verbrauch" },
+      "consumption_limit_duration": { "name": "Netzbetreiber-Limit Verbrauch Dauer" },
+      "consumption_nominal_max": { "name": "Nennleistung Verbrauch" },
+      "production_limit": { "name": "Netzbetreiber-Limit Einspeisung" },
+      "production_limit_duration": { "name": "Netzbetreiber-Limit Einspeisung Dauer" },
+      "active_power": { "name": "Führender WR Leistung" },
+      "energy_consumed": { "name": "Führender WR Energie bezogen" },
+      "energy_produced": { "name": "Führender WR Energie erzeugt" },
+      "frequency": { "name": "Führender WR Frequenz" },
+      "inverter_power": { "name": "Führender WR PV-Leistung" },
+      "inverter_pv_yield_total": { "name": "Führender WR PV-Ertrag" },
+      "inverter_nominal_peak": { "name": "Führender WR PV-Spitzenleistung" },
+      "battery_power": { "name": "Führender WR Batterieleistung" },
+      "battery_soc": { "name": "Führender WR Batterie-Ladezustand" },
+      "battery_energy_charged": { "name": "Führender WR Batterie geladen" },
+      "battery_energy_discharged": { "name": "Führender WR Batterie entladen" },
+      "power_l1": { "name": "Führender WR Leistung L1" },
+      "power_l2": { "name": "Führender WR Leistung L2" },
+      "power_l3": { "name": "Führender WR Leistung L3" },
+      "current_l1": { "name": "Führender WR Strom L1" },
+      "current_l2": { "name": "Führender WR Strom L2" },
+      "current_l3": { "name": "Führender WR Strom L3" },
+      "voltage_l1": { "name": "Führender WR Spannung L1" },
+      "voltage_l2": { "name": "Führender WR Spannung L2" },
+      "voltage_l3": { "name": "Führender WR Spannung L3" },
+      "remote_power": { "name": "Leistung" },
+      "remote_energy_consumed": { "name": "Energie bezogen" },
+      "remote_energy_produced": { "name": "Energie erzeugt" },
+      "remote_pv_power": { "name": "PV-Leistung" },
+      "remote_pv_yield_total": { "name": "PV-Ertrag gesamt" },
+      "remote_pv_nominal_peak": { "name": "PV-Spitzenleistung" },
+      "remote_battery_power": { "name": "Batterieleistung" },
+      "remote_battery_soc": { "name": "Batterie-Ladezustand" },
+      "remote_battery_energy_charged": { "name": "Batterie geladen" },
+      "remote_battery_energy_discharged": { "name": "Batterie entladen" },
+      "remote_grid_power": { "name": "Netzleistung" },
+      "remote_grid_energy_feed_in": { "name": "Netzeinspeisung" },
+      "remote_grid_energy_consumed": { "name": "Netzbezug" },
+      "remote_grid_limitation_factor": { "name": "Einspeisebegrenzung" },
+      "remote_grid_frequency": { "name": "Netzfrequenz" },
+      "ev_charging_power": { "name": "Ladeleistung" },
+      "ev_energy_charged": { "name": "Geladene Energie (Sitzung)" },
+      "ev_soc": { "name": "Fahrzeug-Ladezustand" },
+      "ev_applied_current": { "name": "Ladestromgrenze" },
+      "ev_min_current": { "name": "Minimaler Ladestrom" },
+      "ev_max_current": { "name": "Maximaler Ladestrom" },
+      "ev_communication_standard": { "name": "Fahrzeugkommunikation" },
+      "ev_evse_state": { "name": "Wallbox-Zustand" },
+      "ev_charge_state": {
+        "name": "Ladezustand",
+        "state": {
+          "unknown": "Unbekannt",
+          "unplugged": "Nicht eingesteckt",
+          "error": "Fehler",
+          "paused": "Pausiert",
+          "active": "Lädt",
+          "finished": "Fertig"
+        }
+      },
+      "lpc_applied": { "name": "Verbrauchslimit (angewendet)" },
+      "lpp_applied": { "name": "Einspeiselimit (angewendet)" },
+      "lpc_distributed": { "name": "§14a-Anteil" },
+      "site_pv_power": { "name": "PV-Leistung gesamt" },
+      "site_battery_power": { "name": "Batterieleistung gesamt" },
+      "site_grid_power": { "name": "Netzleistung" },
+      "site_ev_charging_power": { "name": "Ladeleistung gesamt" },
+      "site_heat_pump_power": { "name": "Wärmepumpenleistung gesamt" },
+      "lpc_distribution_share": { "name": "§14a-Anteil Durchschnitt" },
+      "pv_surplus": { "name": "PV-Überschuss" },
+      "remote_battery_soh": { "name": "Batterie-Gesundheit" },
+      "remote_battery_temperature": { "name": "Batterietemperatur" },
+      "remote_inverter_ac_power": { "name": "Wechselrichter AC-Leistung" },
+      "remote_inverter_energy_produced": { "name": "Wechselrichter Energie erzeugt" },
+      "remote_inverter_energy_consumed": { "name": "Wechselrichter Energie bezogen" },
+      "remote_inverter_yield_total": { "name": "Wechselrichter PV-Ertrag gesamt" },
+      "remote_inverter_frequency": { "name": "Wechselrichter-Frequenz" },
+      "site_inverter_ac_power": { "name": "Wechselrichter AC-Leistung gesamt" },
+      "remote_category": {
+        "name": "Gerätetyp",
+        "state": {
+          "inverter": "Wechselrichter",
+          "wallbox": "Wallbox",
+          "heat_pump": "Wärmepumpe",
+          "grid_meter": "Netzzähler",
+          "control_box": "Steuerbox",
+          "generic": "Sonstiges"
+        }
+      },
+      "remote_battery_energy_stored": { "name": "Batterie-Energieinhalt" },
+      "remote_battery_capacity": { "name": "Batterie nutzbare Kapazität" },
+      "remote_battery_cycles": { "name": "Batterie-Ladezyklen" },
+      "remote_battery_voltage": { "name": "Batteriespannung" },
+      "remote_battery_current": { "name": "Batteriestrom" },
+      "flex_state": {
+        "name": "Optionaler Verbrauch",
+        "state": {
+          "none": "Kein Angebot",
+          "available": "Verfügbar",
+          "scheduled": "Geplant",
+          "running": "Läuft",
+          "paused": "Pausiert",
+          "completed": "Abgeschlossen",
+          "stopped": "Abgebrochen"
+        }
+      },
+      "flex_power": { "name": "Leistung optionaler Verbrauch" },
+      "flex_max_power": { "name": "Max. Leistung optionaler Verbrauch" },
+      "remote_energy_calculated": { "name": "Verbrauchte Energie (berechnet)" }
+    },
+    "binary_sensor": {
+      "consumption_limit_active": { "name": "Netzbetreiber-Limit Verbrauch aktiv" },
+      "production_limit_active": { "name": "Netzbetreiber-Limit Einspeisung aktiv" },
+      "connected": { "name": "EEBUS verbunden" },
+      "lpc_heartbeat": { "name": "Netzbetreiber-Heartbeat" },
+      "remote_connected": { "name": "Verbunden" },
+      "lpc_distribution_active": { "name": "§14a-Verteilung aktiv" },
+      "ev_plugged": { "name": "Fahrzeug eingesteckt" },
+      "ev_sleep": { "name": "Fahrzeug schläft" },
+      "lpc_limited": { "name": "Verbrauch begrenzt" },
+      "lpc_simulated": { "name": "§14a-Simulation aktiv" },
+      "lpp_limited": { "name": "Einspeisung begrenzt" }
+    },
+    "number": {
+      "failsafe_consumption_power": { "name": "Failsafe Verbrauch Leistung" },
+      "failsafe_consumption_duration": { "name": "Failsafe Verbrauch Dauer" },
+      "consumption_nominal_max_cfg": { "name": "Nennleistung Verbrauch" },
+      "production_nominal_max_cfg": { "name": "Nennleistung Einspeisung" },
+      "failsafe_production_power": { "name": "Failsafe Einspeisung Leistung" },
+      "failsafe_production_duration": { "name": "Failsafe Einspeisung Dauer" },
+      "inverter_consumption_limit": { "name": "Führender WR Verbrauchslimit" },
+      "inverter_production_limit": { "name": "Führender WR Einspeiselimit" },
+      "lpc_target": { "name": "Verbrauchslimit" },
+      "lpp_target": { "name": "Einspeiselimit" },
+      "lpc_failsafe_power": { "name": "Failsafe-Leistung" },
+      "lpc_failsafe_duration": { "name": "Failsafe-Dauer" },
+      "charge_power_manual": { "name": "Ladeleistung (manuell)" }
+    },
+    "switch": {
+      "inverter_consumption_limit_active": { "name": "Führender WR Verbrauchslimit aktiv" },
+      "inverter_production_limit_active": { "name": "Führender WR Einspeiselimit aktiv" },
+      "remote_trusted": { "name": "Vertraut" },
+      "lpc_active": { "name": "Verbrauchslimit aktiv" },
+      "lpp_active": { "name": "Einspeiselimit aktiv" },
+      "flex_pv_surplus": { "name": "PV-Überschuss nutzen" }
+    },
+    "select": {
+      "charge_mode": {
+        "name": "Lademodus",
+        "state": {
+          "auto": "Automatisch (Wallbox entscheidet)",
+          "off": "Aus",
+          "pv": "Nur PV-Überschuss",
+          "min_pv": "Minimum + PV",
+          "fast": "Schnell",
+          "manual": "Manuelle Leistung"
+        }
+      }
+    },
+    "button": {
+      "flex_start": { "name": "Optionalen Verbrauch starten" },
+      "flex_pause": { "name": "Optionalen Verbrauch pausieren" },
+      "flex_resume": { "name": "Optionalen Verbrauch fortsetzen" },
+      "flex_stop": { "name": "Optionalen Verbrauch abbrechen" }
+    }
+  },
+  "issues": {
+    "eg_control_disabled": {
+      "title": "EEBUS-Geräte nicht steuerbar",
+      "description": "Die EEBUS Bridge hat {devices} gefunden. Diese Geräte lassen sich nur steuern, wenn die Bridge als Energy Guard arbeitet. Aktiviere `enable_eg_control` in der Konfiguration des EEBUS-Bridge-Add-ons und starte das Add-on neu. Danach erscheinen Lademodus, Limits und Failsafe-Einstellungen am Gerät."
+    }
+  }
+}
