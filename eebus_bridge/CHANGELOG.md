@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.7
+
+First stable release since 0.1.1: all EEBUS device classes, pairing from
+Home Assistant, wallbox charge modes, §14a sharing, MOI/MOB, heat pump PV
+surplus (OHPCF) incl. Bosch fixes, newer spine-go. Details: CHANGELOG.md in
+the repository.
+
 ## 0.6.7-dev
 
 - No add-on changes; version aligned with the integration.
