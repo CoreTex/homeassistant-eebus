@@ -178,6 +178,8 @@ async def test_kathrein_pv_charging(hass: HomeAssistant) -> None:
         mode = eid("select", KATHREIN, "charge_mode")
         assert mode, "charge mode select missing for the Kathrein"
         assert hass.states.get(mode).state == "auto"
+        # only a power limit: the card explains that pausing depends on the box
+        assert hass.states.get(mode).attributes["control"] == "lpc"
         for key in ("lpc_target", "lpc_failsafe_power", "lpc_failsafe_duration", "charge_power_manual"):
             assert eid("number", KATHREIN, key), key
         assert eid("switch", KATHREIN, "lpc_active")

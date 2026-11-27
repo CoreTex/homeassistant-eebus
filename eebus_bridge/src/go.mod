@@ -5,7 +5,7 @@ go 1.24.1
 require (
 	github.com/enbility/eebus-go v0.7.1-0.20260520155652-11bc53084557
 	github.com/enbility/ship-go v0.6.1-0.20260518113001-134687068e3c
-	github.com/enbility/spine-go v0.7.1-0.20260520153416-0104ce40c885
+	github.com/enbility/spine-go v0.7.1-0.20261116121943-82844d443368
 	github.com/gorilla/websocket v1.5.3
 	github.com/stretchr/testify v1.11.1
 )

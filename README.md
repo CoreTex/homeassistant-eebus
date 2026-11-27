@@ -93,7 +93,7 @@ as your EEBUS devices – same image as the add-on, configured with an
 
 ```bash
 docker run -d --name eebus-bridge --restart unless-stopped --network host \
-  -v /opt/eebus-bridge:/data ghcr.io/coretex/amd64-addon-eebus_bridge:0.6.0
+  -v /opt/eebus-bridge:/data ghcr.io/coretex/amd64-addon-eebus_bridge:0.6.7-dev
 ```
 
 Use `aarch64` instead of `amd64` on ARM (e.g. Raspberry Pi). Details, a
@@ -242,6 +242,17 @@ vehicle are controlled by charging current (OPEV), §14a-only wallboxes (e.g.
 KATHREIN AC40) by a power limit – this needs *Control devices*. Several
 wallboxes in a PV mode share the surplus. A wallbox without its own
 measurement is regulated on the grid power alone.
+
+## Known device limitations
+
+Behaviour of the devices themselves, observed on real hardware. The bridge
+cannot change it.
+
+| Device | Limitation |
+| --- | --- |
+| **KATHREIN AC40** wallbox | Offers only a power limit via EEBUS (no measurements, no vehicle data). It accepts and reports limits down to 0 W, but does not charge below about 2.6 kW and does not pause. Limiting works above that; *Off* and *PV* without enough surplus keep charging at about 2.6 kW. The wallbox has no setting for this – ask KATHREIN for a firmware that pauses at low limits. The wallbox card shows a hint. |
+| **Bosch** heat pumps with K 40 RF (e.g. CS5800i) | Leave their failsafe (display error **1240**, "communication to the energy manager lost") only on an *active* limit. The bridge therefore sends "no limit" as an active limit at the nominal maximum – this does not restrict the heat pump. Optional consumption (OHPCF) cannot be paused: once started on surplus, it runs until the heat pump is done. Temperatures and operating modes are not available via EEBUS. |
+| **KOSTAL** PLENTICORE G3 | Reports the battery's stored energy 100 times too high; the bridge calculates it from state of charge × capacity instead. |
 
 ## §14a: grid operator limits
 

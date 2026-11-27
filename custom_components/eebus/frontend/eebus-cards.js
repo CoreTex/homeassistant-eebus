@@ -9,7 +9,7 @@
  * any entity IDs and languages. No external libraries.
  */
 
-const VERSION = "0.6.0";
+const VERSION = "0.6.7-dev";
 
 // --- semantic colours (one meaning each, readable on light and dark themes)
 const C = {
@@ -37,7 +37,8 @@ const STRINGS = {
     flex_states: { none: "No offer", available: "Available", scheduled: "Scheduled", running: "Running",
       paused: "Paused", completed: "Completed", stopped: "Stopped" },
     limit: "Consumption limit", feed_in_limit: "Feed-in limit", not_limited: "Not limited",
-    mode: "Charge mode", manual_power: "Manual power", plugged: "Vehicle plugged in",
+    mode: "Charge mode", manual_power: "Manual power",
+    lpc_only_hint: "This wallbox can only be controlled with a power limit. Whether it pauses at low values (Off, PV without surplus) depends on its own settings (minimum current, allow charging pauses).", plugged: "Vehicle plugged in",
     unplugged: "No vehicle", vehicle_soc: "Vehicle", power: "Power", energy: "Energy",
     feed_in: "Feed-in", limitation: "Feed-in limitation", offline: "Not connected",
     no_device: "Choose an EEBUS device in the card settings.",
@@ -63,7 +64,8 @@ const STRINGS = {
     flex_states: { none: "Kein Angebot", available: "Verfügbar", scheduled: "Geplant", running: "Läuft",
       paused: "Pausiert", completed: "Abgeschlossen", stopped: "Abgebrochen" },
     limit: "Verbrauchslimit", feed_in_limit: "Einspeiselimit", not_limited: "Nicht begrenzt",
-    mode: "Lademodus", manual_power: "Manuelle Leistung", plugged: "Fahrzeug eingesteckt",
+    mode: "Lademodus", manual_power: "Manuelle Leistung",
+    lpc_only_hint: "Diese Wallbox lässt sich nur über ein Leistungslimit steuern. Ob sie bei kleinen Werten pausiert (Aus, PV ohne Überschuss), hängt von ihren eigenen Einstellungen ab (Mindeststrom, Ladepausen erlauben).", plugged: "Fahrzeug eingesteckt",
     unplugged: "Kein Fahrzeug", vehicle_soc: "Fahrzeug", power: "Leistung", energy: "Energie",
     feed_in: "Einspeisung", limitation: "Einspeisebegrenzung", offline: "Nicht verbunden",
     no_device: "Wähle in den Karteneinstellungen ein EEBUS-Gerät.",
@@ -677,6 +679,7 @@ class EebusWallboxCard extends EebusBaseCard {
     .modes button[aria-pressed="true"] { background: var(--card-background-color, var(--ha-card-background, #fff));
       color:${C.ev}; box-shadow: 0 1px 2px rgba(0,0,0,.18); }
     .modes button:focus-visible { outline: 2px solid ${C.ev}; outline-offset: 1px; }
+    .hint { margin-top:10px; font-size:12px; line-height:1.4; color: var(--secondary-text-color); }
     .manual { display:flex; align-items:center; gap:12px; margin-top:12px; font-size:13px; color: var(--secondary-text-color); }
     .manual input { flex:1; accent-color:${C.ev}; }
     .manual b { color: var(--primary-text-color); font-weight:500; min-width:64px; text-align:right; font-variant-numeric: tabular-nums; }
@@ -713,6 +716,8 @@ class EebusWallboxCard extends EebusBaseCard {
     }
     const modes = e.charge_mode ? `<div class="modes" role="group" aria-label="${t.mode}">${MODES.map((m) =>
       `<button data-mode="${m}" aria-pressed="${m === mode}" title="${t.modes[m]}"><ha-icon icon="${MODE_ICONS[m]}"></ha-icon>${t.modes[m]}</button>`).join("")}</div>` : "";
+    const lpcOnly = h.states[e.charge_mode]?.attributes?.control === "lpc";
+    const hint = lpcOnly && ["off", "pv", "min_pv"].includes(mode) ? `<div class="hint">${t.lpc_only_hint}</div>` : "";
     const manualW = num(h, e.charge_power_manual);
     const manual = mode === "manual" && e.charge_power_manual ? `<div class="manual"><span>${t.manual_power}</span>
         <input type="range" min="0" max="22000" step="100" value="${manualW ?? 0}" aria-label="${t.manual_power}">
@@ -727,7 +732,7 @@ class EebusWallboxCard extends EebusBaseCard {
     if (share !== null && !(heroIsLimit && Math.abs(share - limitW) < 1)) stats.push(this.stat(t.share, power(h, share), e.lpc_distributed));
     return `${this.header(t, name, sub, this.connectedChip(t))}
       <div class="hero clickable" data-entity="${powerId || e.lpc_limited || e.charge_mode}"><span class="big">${heroValue}</span><span class="muted">${heroSub}</span></div>
-      ${modes}${manual}<div class="stats">${stats.join("")}</div>
+      ${modes}${hint}${manual}<div class="stats">${stats.join("")}</div>
       ${this.graph(t, powerId || e.lpc_applied, C.ev)}`;
   }
 

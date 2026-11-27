@@ -8,28 +8,80 @@ and restart Home Assistant after updating the integration.
 `https://github.com/CoreTex/homeassistant-eebus#dev`, integration via HACS with
 beta versions enabled).
 
-## 0.6.0 – stable
+## 0.6.7-dev – 2026-11-26
 
-First stable release since 0.1.1. It contains everything from 0.2.0-dev to
-0.6.0-dev below. Highlights:
+### Changed
+- *Use PV surplus* for heat pumps logs on every cycle why it does not act
+  (state, requested power, surplus, grid power) at debug level (#4).
+- README: *Known device limitations* (KATHREIN AC40, Bosch, KOSTAL).
 
-- **Every EEBUS device class:** inverters (several, with a leading one),
-  batteries, wallboxes, heat pumps, grid meters and control boxes are paired,
-  classified and get their own device in Home Assistant.
-- **Pairing in Home Assistant:** trust and forget devices with a switch, no
-  add-on restart needed.
-- **Wallboxes:** charge modes incl. PV-surplus charging, vehicle data where
-  the wallbox reports it.
-- **§14a:** grid operator limits are shared by demand among wallboxes, heat
-  pumps and (optionally) inverter batteries; simulation for testing.
-- **Inverter and battery monitoring** via MOI/MOB.
-- **Heat pumps:** use PV surplus (OHPCF), calculated energy.
-- **Dashboard cards** for every device type.
-- Clearer settings, documentation, Docker setup without add-ons, anonymised
-  diagnostics.
+## 0.6.6-dev – 2026-11-26
 
-**Updating from 0.1.1:** no settings were removed or renamed. Update the
-add-on and the integration and restart Home Assistant. Your pairing is kept.
+### Changed
+- **Wallboxes controlled only by a power limit** (e.g. KATHREIN AC40): the
+  charge mode has a `control` attribute (`lpc` or `opev`), and the wallbox
+  card explains in *Off*, *PV* and *Min + PV* that pausing depends on the
+  wallbox's own settings. The AC40 accepts and reports a 0 W limit but keeps
+  charging at about 2.6 kW unless it is configured to pause.
+
+## 0.6.5-dev – 2026-11-26
+
+### Fixed
+- **Partial OHPCF updates from heat pumps are merged** (#7). Heat pumps such
+  as the Bosch CS5800i send partial notifies of their power sequences; the
+  bridge answered each with an error (`partial updates are not supported for
+  type 'SmartEnergyManagementPsDataType'`) and had to re-read the full data.
+  spine-go is updated to its current dev version, which merges them
+  (enbility/spine-go#80, #104 – the same fix evcc picked up).
+
+### Changed
+- The spine-go update also sends the first heartbeat right after connecting,
+  drops stale device state when a device reconnects, and brings several
+  discovery and binding fixes. It affects all devices – please report
+  anything unusual.
+
+## 0.6.4-dev – 2026-11-26
+
+### Fixed
+- **Bosch heat pumps stay in error 1240 after a bridge restart** (#7). 1240
+  means "communication to the energy manager lost" (failsafe); the heat pump
+  only leaves it on an *active* limit. Heat pumps the bridge manages (LPC +
+  OHPCF) now get "no limit" as an active limit at their nominal maximum –
+  after connecting and when you switch your own limit off. This does not
+  restrict the heat pump. The deactivated limit is only the fallback.
+
+## 0.6.3-dev – 2026-11-25
+
+### Fixed
+- **Heat pumps that reject every limit right after connecting** (Bosch, #7):
+  the bridge now keeps retrying the consumption limit with a growing delay
+  (15 s, 30 s, 1, 2, 4, 8 min) until it is accepted or the heat pump
+  disconnects, instead of giving up after the second attempt.
+
+## 0.6.2-dev – 2026-11-23
+
+### Fixed
+- **Bosch heat pumps: error 1240 after a bridge restart** (#7). Right after
+  connecting the bridge could not send the limit yet ("data not available")
+  and did not retry reliably, and some heat pumps reject a deactivated limit
+  at that moment. The bridge now retries as soon as the heat pump's limit
+  data has arrived and, if the deactivated limit is rejected, sends an active
+  limit at the heat pump's nominal maximum (which does not limit anything).
+  You no longer need to set a consumption limit by hand.
+
+### Changed
+- *Use PV surplus* logs a warning when no grid power value is available
+  (select your grid power sensor in the integration options).
+
+## 0.6.1-dev – 2026-11-20
+
+### Fixed
+- **Heat pumps with OHPCF (e.g. Bosch CS5800i/CS6800i) now get a consumption
+  limit from the bridge** – a deactivated one unless you set a limit – right
+  after they connect. Without it the heat pump waited for an energy manager
+  that controls it, showed a communication error (Bosch 1240) and ignored
+  *Start optional consumption* (#7). Other devices are not touched, since
+  another energy manager may control them.
 
 ## 0.6.0-dev – 2026-11-20
 

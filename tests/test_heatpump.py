@@ -78,6 +78,7 @@ def test_start_needs_surplus_for_the_start_delay() -> None:
     rt = FlexRuntime()
     # 1000 W surplus is not enough for 1500 W
     assert decide(_hp(), -1200, 200, 60, 300, rt, 0) is None
+    assert rt.last_surplus_w == 1000  # shown in the debug log
     assert decide(_hp(), -2000, 200, 60, 300, rt, 10) is None  # enough, delay starts
     assert decide(_hp(), -2000, 200, 60, 300, rt, 50) is None
     assert decide(_hp(), -2000, 200, 60, 300, rt, 75) == START

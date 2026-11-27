@@ -1,10 +1,38 @@
 # Changelog
 
-## 0.6.0
+## 0.6.7-dev
 
-First stable release since 0.1.1: all EEBUS device classes, pairing from
-Home Assistant, wallbox charge modes, §14a sharing, MOI/MOB, heat pump PV
-surplus (OHPCF). Details: CHANGELOG.md in the repository.
+- No add-on changes; version aligned with the integration.
+
+## 0.6.6-dev
+
+- No add-on changes; version aligned with the integration.
+
+## 0.6.5-dev
+
+- spine-go updated to current dev: partial power-sequence (OHPCF) updates
+  are merged instead of rejected, first heartbeat right after connecting,
+  stale device state dropped on reconnect (#7).
+
+## 0.6.4-dev
+
+- Managed heat pumps get "no limit" as an active LPC limit at their nominal
+  maximum, so Bosch heat pumps leave failsafe (error 1240) (#7).
+
+## 0.6.3-dev
+
+- Heat pumps: retry a rejected initial LPC limit with backoff (#7).
+
+## 0.6.2-dev
+
+- Heat pumps: retry the initial LPC limit once the limit data is available;
+  if a deactivated limit is rejected, send an active limit at the nominal
+  maximum instead (#7).
+
+## 0.6.1-dev
+
+- Heat pumps offering OHPCF get the current (normally deactivated) LPC limit
+  after connecting, so they accept the bridge as their energy manager (#7).
 
 ## 0.6.0-dev
 

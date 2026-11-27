@@ -70,6 +70,13 @@ class EebusChargeModeSelect(EebusRemoteEntity, SelectEntity, RestoreEntity):
     def available(self) -> bool:
         return super().available and wallbox_control_path(self.device_data) is not None
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        # "lpc": only a power limit is available (no EV current control, no
+        # measurements); whether the wallbox pauses at low limits (off, PV
+        # without surplus) depends on its own settings.
+        return {"control": wallbox_control_path(self.device_data)}
+
     async def async_select_option(self, option: str) -> None:
         await self._controller.async_set_mode(self._ski, option)
         self.async_write_ha_state()

@@ -40,6 +40,7 @@ func (m *Manager) onOHPCF(_ string, device spineapi.DeviceRemoteInterface, entit
 		m.mu.Lock()
 		m.flexEntities[ski] = entity
 		m.mu.Unlock()
+		m.takeLPCControl(ski)
 	}
 	m.refreshFlex(ski)
 }

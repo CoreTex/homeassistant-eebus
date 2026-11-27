@@ -32,6 +32,9 @@ func newTestManager(t *testing.T, cfg config.Config) *Manager {
 		primaryWarned: make(map[string]bool),
 		egEntities:    map[LimitKind]map[string]spineapi.EntityRemoteInterface{KindLPC: {}, KindLPP: {}},
 		evEntities:    make(map[string]spineapi.EntityRemoteInterface),
+		flexEntities:  make(map[string]spineapi.EntityRemoteInterface),
+		lpcControlled: make(map[string]bool),
+		lpcRetries:    make(map[string]int),
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"time"
 
 	"github.com/CoreTex/homeassistant-eebus/eebus_bridge/internal/store"
 
@@ -76,6 +77,9 @@ func (m *Manager) onEG(kind LimitKind, device spineapi.DeviceRemoteInterface, en
 		m.seedLeadingTargets()
 		m.syncConnections()
 		m.mirrorLeading()
+		if kind == KindLPC {
+			m.takeLPCControl(ski)
+		}
 		// Re-apply a user or §14a limit after a (re)connect.
 		if err := m.applyLimit(kind, ski, false); err != nil && !errors.Is(err, errNotConnected) {
 			m.logger.Errorf("re-applying %s limit to %s: %v", kind, ski, err)
@@ -83,6 +87,9 @@ func (m *Manager) onEG(kind LimitKind, device spineapi.DeviceRemoteInterface, en
 		m.scheduleDistribution()
 	default:
 		m.readBackLimit(kind, ski, entity)
+		if kind == KindLPC {
+			m.takeLPCControl(ski) // retry once the limit data is there
+		}
 	}
 }
 
@@ -94,6 +101,157 @@ func (m *Manager) egScenarios(kind LimitKind, entity spineapi.EntityRemoteInterf
 		return m.egLPP.AvailableScenariosForEntity(entity)
 	}
 	return nil
+}
+
+// takeLPCControl sends a heat pump that offers OHPCF a consumption limit once
+// after it connected.
+//
+// Heat pumps such as the Bosch CS5800i/CS6800i only follow an energy manager
+// that actually controls them via LPC: a heat pump that gets heartbeats but
+// never a limit stays in its init/failsafe state, shows a communication error
+// (Bosch: 1240) and does not start on OHPCF. Without a user or §14a limit the
+// bridge sends a deactivated limit; some heat pumps reject that right after
+// connecting (#7), then an active limit at the nominal maximum is sent, which
+// does not limit anything. Other devices are left alone, as they may be
+// controlled by another energy manager.
+//
+// It is called on every LPC/OHPCF event, so a write that is not possible yet
+// (limit descriptions not read) is retried with the next event.
+func (m *Manager) takeLPCControl(ski string) {
+	m.mu.Lock()
+	_, flex := m.flexEntities[ski]
+	entity, lpc := m.egEntities[KindLPC][ski]
+	done := m.lpcControlled[ski]
+	if flex && lpc && !done {
+		m.lpcControlled[ski] = true
+	}
+	m.mu.Unlock()
+	if !flex || !lpc || done || m.egLPC == nil {
+		return
+	}
+
+	ctl := store.DeviceControl{}
+	if d := m.store.Snapshot().Devices[ski]; d.Control != nil {
+		ctl = *d.Control
+	}
+	var err error
+	if _, active := effectiveLimit(ctl.LPCActive, ctl.LPCTargetW, ctl.DistributedLimitW); active || entity == nil {
+		err = m.applyLimit(KindLPC, ski, true)
+	} else {
+		first, fallback := m.unlimitedLimits(entity, ctl)
+		_, err = m.egLPC.WriteConsumptionLimit(entity, first, m.takeoverResultCB(ski, entity, fallback))
+	}
+	if err != nil {
+		m.mu.Lock()
+		delete(m.lpcControlled, ski)
+		m.mu.Unlock()
+		if errors.Is(err, eebusapi.ErrDataNotAvailable) {
+			m.logger.Debugf("heat pump %s: limit not sent yet, waiting for its limit data", ski)
+			return
+		}
+		m.logger.Errorf("sending the consumption limit to %s: %v", ski, err)
+		return
+	}
+	m.logger.Infof("heat pump %s: sent the consumption limit (bridge is its energy manager)", ski)
+}
+
+// unlimitedLimits returns the "no limit" for a heat pump the bridge manages
+// and a fallback: an active limit at the nominal maximum first, as Bosch heat
+// pumps only leave their failsafe state (error 1240, "communication to the
+// energy manager lost") on an active limit (#7); a deactivated limit as
+// fallback. Without a known nominal maximum only the deactivated one is used.
+func (m *Manager) unlimitedLimits(entity spineapi.EntityRemoteInterface, ctl store.DeviceControl) (ucapi.LoadLimit, *ucapi.LoadLimit) {
+	off := ucapi.LoadLimit{Value: m.lpcNominal(entity, ctl), IsChangeable: true}
+	if nominal := m.lpcNominal(entity, ctl); nominal > 0 {
+		return ucapi.LoadLimit{Value: nominal, IsActive: true, IsChangeable: true}, &off
+	}
+	return off, nil
+}
+
+// takeoverResultCB sends the fallback limit when the heat pump rejects the
+// first one. If that is rejected too (some heat pumps reject every write for
+// a while after connecting, #7), the takeover is retried later with a
+// growing delay.
+func (m *Manager) takeoverResultCB(ski string, entity spineapi.EntityRemoteInterface, fallback *ucapi.LoadLimit) func(model.ResultDataType, model.MsgCounterType) {
+	return func(r model.ResultDataType, _ model.MsgCounterType) {
+		if r.ErrorNumber == nil || *r.ErrorNumber == model.ErrorNumberTypeNoError {
+			m.mu.Lock()
+			delete(m.lpcRetries, ski)
+			m.mu.Unlock()
+			return
+		}
+		if fallback == nil {
+			m.logger.Infof("heat pump %s rejected the consumption limit (code=%v)", ski, *r.ErrorNumber)
+			m.retryTakeover(ski, entity)
+			return
+		}
+		m.logger.Infof("heat pump %s rejected the limit (code=%v), sending active=%v %.0f W instead", ski, *r.ErrorNumber, fallback.IsActive, fallback.Value)
+		limit := *fallback
+		go func() { // not from within the result handler
+			if _, err := m.egLPC.WriteConsumptionLimit(entity, limit, m.takeoverResultCB(ski, entity, nil)); err != nil {
+				m.logger.Errorf("sending the consumption limit to %s: %v", ski, err)
+				m.retryTakeover(ski, entity)
+			}
+		}()
+	}
+}
+
+// maxTakeoverRetries limits the retries: 15 s, 30 s, 1, 2, 4 and 8 min.
+const maxTakeoverRetries = 6
+
+// takeoverDelay is the wait before retry n (1-based); a variable for tests.
+var takeoverDelay = func(n int) time.Duration { return 15 * time.Second << (n - 1) }
+
+// retryTakeover schedules another takeLPCControl while the heat pump stays
+// connected.
+func (m *Manager) retryTakeover(ski string, entity spineapi.EntityRemoteInterface) {
+	m.mu.Lock()
+	n := m.lpcRetries[ski] + 1
+	if n > maxTakeoverRetries || m.egEntities[KindLPC][ski] != entity {
+		m.mu.Unlock()
+		if n > maxTakeoverRetries {
+			m.logger.Errorf("heat pump %s keeps rejecting the consumption limit; giving up until it reconnects", ski)
+		}
+		return
+	}
+	m.lpcRetries[ski] = n
+	m.mu.Unlock()
+	d := takeoverDelay(n)
+	m.logger.Infof("heat pump %s: retrying the consumption limit in %s", ski, d)
+	time.AfterFunc(d, func() {
+		m.mu.Lock()
+		current := m.egEntities[KindLPC][ski] == entity
+		if current {
+			delete(m.lpcControlled, ski)
+		}
+		m.mu.Unlock()
+		if current {
+			m.takeLPCControl(ski)
+		}
+	})
+}
+
+// managedHeatPump reports whether the bridge acts as energy manager of a heat
+// pump (it offers OHPCF and accepts LPC limits from the bridge).
+func (m *Manager) managedHeatPump(ski string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, flex := m.flexEntities[ski]
+	_, lpc := m.egEntities[KindLPC][ski]
+	return flex && lpc
+}
+
+// lpcNominal returns the nominal maximum consumption of a device, 0 if unknown.
+func (m *Manager) lpcNominal(entity spineapi.EntityRemoteInterface, ctl store.DeviceControl) float64 {
+	if entity != nil && m.egLPC != nil {
+		if v, err := m.egLPC.ConsumptionNominalMax(entity); err == nil && v > 0 {
+			return v
+		}
+	}
+	if ctl.LPCNominalMaxW != nil {
+		return *ctl.LPCNominalMaxW
+	}
+	return 0
 }
 
 // readBackLimit stores the limit the device itself reports.
@@ -272,9 +430,21 @@ func (m *Manager) applyLimit(kind LimitKind, ski string, force bool) error {
 		return nil
 	}
 
+	if !active && ctl.LPCNominalMaxW != nil && kind == KindLPC {
+		// the value of a deactivated limit is ignored; some devices reject 0
+		value = *ctl.LPCNominalMaxW
+	}
+	sendActive := active
+	if kind == KindLPC && !active && m.managedHeatPump(ski) {
+		// a heat pump the bridge manages gets "no limit" as an active limit at
+		// its nominal maximum, see unlimitedLimits
+		if first, _ := m.unlimitedLimits(entity, ctl); first.IsActive {
+			value, sendActive = first.Value, true
+		}
+	}
 	limit := ucapi.LoadLimit{
 		Value:        value,
-		IsActive:     active,
+		IsActive:     sendActive,
 		IsChangeable: true,
 		Duration:     secondsToDuration(durationS),
 	}
