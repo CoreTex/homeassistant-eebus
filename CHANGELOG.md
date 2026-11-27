@@ -13,6 +13,7 @@ beta versions enabled).
 ### Changed
 - *Use PV surplus* for heat pumps logs on every cycle why it does not act
   (state, requested power, surplus, grid power) at debug level (#4).
+- README: *Known device limitations* (KATHREIN AC40, Bosch, KOSTAL).
 
 ## 0.6.6-dev – 2026-11-26
 
